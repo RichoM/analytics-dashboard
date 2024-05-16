@@ -1,0 +1,13 @@
+{
+  "name": "analytics-dashboard",
+  "version": "0.0.1",
+  "private": true,
+  "devDependencies": {
+    "shadow-cljs": "2.28.6"
+  },
+  "dependencies": {
+    "@google-cloud/local-auth": "^2.1.1",
+    "googleapis": "^137.1.0",
+    "vega-lite": "^5.14.1"
+  }
+}
