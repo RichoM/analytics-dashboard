@@ -7,6 +7,8 @@
 (def API_KEY "AIzaSyCh3kNODhW_R90EOjjoqrK66HhIuKw9EDQ")
 (def DISCOVERY_DOC "https://sheets.googleapis.com/$discovery/rest?version=v4")
 
+(defonce !token-client (atom nil))
+
 (defn promise-error [err]
   (ex-info "Promise error"
            {:error :promise-error}
@@ -28,9 +30,13 @@
     c))
 
 (defn init-token-client! [credentials]
-  (let [c (a/promise-chan)
-        token-client (ocall! js/google :accounts.oauth2.initTokenClient
-                             (clj->js (merge {:callback ""} credentials)))]
+  (go-try
+   (reset! !token-client
+           (ocall! js/google :accounts.oauth2.initTokenClient
+                   (clj->js (merge {:callback ""} credentials))))))
+
+(defn request-access-token! [token-client]
+  (let [c (a/promise-chan)]
     (oset! token-client :callback
            (fn [res]
              (if (some? (oget res :?error))
@@ -43,9 +49,11 @@
 
 (defn authorize! [credentials]
   (go-try 
-   (println "1" (<? (load-gapi-client!)))
-   (println "2" (<? (init-gapi-client!)))
-   (println "3" (<? (init-token-client! credentials)))))
+   (when (nil? @!token-client)
+     (println "1" (<? (load-gapi-client!)))
+     (println "2" (<? (init-gapi-client!)))
+     (println "3" (<? (init-token-client! credentials))))
+   (println "4" (<? (request-access-token! @!token-client)))))
 
 (defrecord Spreadsheet [id])
 
