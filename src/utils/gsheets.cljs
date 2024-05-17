@@ -7,6 +7,11 @@
 (def API_KEY "AIzaSyCh3kNODhW_R90EOjjoqrK66HhIuKw9EDQ")
 (def DISCOVERY_DOC "https://sheets.googleapis.com/$discovery/rest?version=v4")
 
+(defn promise-error [err]
+  (ex-info "Promise error"
+           {:error :promise-error}
+           err))
+
 (defn- load-gapi-client! []
   (let [c (a/promise-chan)]
     (ocall! js/gapi :load "client"
@@ -19,7 +24,7 @@
                   (clj->js {:apiKey API_KEY
                             :discoveryDocs [DISCOVERY_DOC]}))
       (.then #(a/close! c))
-      (.catch #(a/put! c %)))
+      (.catch #(a/put! c (promise-error %))))
     c))
 
 (defn init-token-client! [credentials]
@@ -29,7 +34,7 @@
     (oset! token-client :callback
            (fn [res]
              (if (some? (oget res :?error))
-               (a/put! c res)
+               (a/put! c (promise-error res))
                (a/close! c))))
     (if (nil? (ocall! js/gapi :client.getToken))
       (ocall! token-client :requestAccessToken #js {:prompt "consent"})
@@ -42,23 +47,35 @@
    (println "2" (<? (init-gapi-client!)))
    (println "3" (<? (init-token-client! credentials)))))
 
-(comment
+(defrecord Spreadsheet [id])
 
-  (go (try 
-        (<? (authorize! {:client_id "201101636025-l10ovc8h1fl4qnkd4fcpuq7d1gfot4f0.apps.googleusercontent.com"
-                         :scope "https://www.googleapis.com/auth/spreadsheets.readonly"}))
-        (println "Success!")
+(defn get-values! [{:keys [id]} range]
+  (let [c (a/promise-chan)]
+    (doto (ocall! js/gapi :client.sheets.spreadsheets.values.get
+                  (clj->js {:spreadsheetId id :range range}))
+      (.then (fn [response]
+               (js/console.log response)
+               (a/put! c (js->clj (oget response :?result.?values)
+                                  :keywordize-keys true)))
+             (fn [err]
+               (a/put! c (promise-error err)))))
+    c))
+
+
+(comment
+  
+  (js/console.log (ocall! js/gapi :client.sheets.spreadsheets.values.get
+          (clj->js {:spreadsheetId "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms" 
+                    :range "Class Data!A2:E"})))
+  
+  (Spreadsheet. "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms")
+
+  (go (try
+        (println (<? (get-values! (Spreadsheet. "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms")
+                                  "Class Data!A2:E")))
         (catch :default err
           (println "ERROR" err))))
-  
-  (defrecord Spreadsheet [id auth])
 
-  (defn get-values! [{:keys [id auth]} range]
-    (go-try
-     (let [response (<? (p->c (ocall! auth :spreadsheets.values.get
-                                      (clj->js {:spreadsheetId id :range range}))))]
-       (js->clj (oget response :?data.?values)
-                :keywordize-keys true))))
 
   (defn append! [{:keys [id auth]} range values]
     (go-try
