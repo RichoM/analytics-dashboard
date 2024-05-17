@@ -1,11 +1,25 @@
-;; shadow-cljs configuration
-{:source-paths
- ["src/dev"
-  "src/main"
-  "src/test"]
+{:source-paths ["src" "test"]
 
- :dependencies
- []
+ :dependencies [[crate "0.2.5"]
+                [binaryage/oops "0.7.1"]]
 
- :builds
- {}}
+ :nrepl {:port 9000
+         :middleware []}
+
+ :dev-http {8081 ["public"
+                  "public/test"]}
+
+ ; Fix nREPL bug when using accented characters in a source file
+ :jvm-opts ["-Dfile.encoding=UTF8"]
+
+ :builds {:main {:target :browser
+                 :output-dir "public/main/js"
+                 :compiler-options {:optimizations :advanced
+                                    :infer-externs :auto
+                                    ;:pseudo-names true
+                                    ;:pretty-print true
+                                    }
+                 :modules {:main {:init-fn dashboard.main/init}}}
+          :test {:target :browser-test
+                 :test-dir "public/test"
+                 :ns-regexp "-test\\d?$"}}}

@@ -1,0 +1,31 @@
+#main-container {
+    font-family: 'AlegreyaSansRegular', Verdana, sans-serif;
+    user-select: none;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+  }
+  
+  #main-container h3 {
+    font-family: 'DatalegreyaThin', Verdana, sans-serif;
+  }
+  
+  #side-bar , #table-display {
+    width: 250px;
+  }
+  
+  #table-display {
+    font-family: 'Monaco', monospace;
+    font-size: small;
+  }
+  
+  #field-panel {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+  }
+  
+  #canvas-panel {
+    width: 100%;
+    height: 100%;
+  }

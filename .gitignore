@@ -22,5 +22,6 @@ pom.xml.asc
 .lsp/
 .calva/
 .clj-kondo/
-out/
-temp/
+
+/public/main/js
+/public/test
