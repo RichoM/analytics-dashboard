@@ -17,28 +17,83 @@
      [:div#side-bar.col-auto
       [:div.row.my-1]
       [:div.d-grid
-       [:button#authorize-button.r-button.btn.btn-sm.btn-outline-dark.rounded-pill
+       [:button#test-btn.r-button.btn.btn-sm.btn-outline-dark.rounded-pill
         {:type "button" :data-bs-toggle "button"}
         [:i.fa-solid.fa-cube.me-2]
-        "Authorize"]]]]]))
+        "Test"]]]
+     [:div.col-auto
+      [:div.my-1]
+      [:div#vis]]]]))
 
 (defn show-authorization-dialog! []
   (bs/show-modal
-   (bs/make-modal :header [:h2
+   (bs/make-modal :body [:h2
                            [:i.fas.fa-exclamation-circle]
-                           [:span.ms-2 "Authorization required!"]]
-                  :body [:h3 "If you arrived here by accident, please leave quietly. Thanks!"]
-                  :footer [:button.btn.btn-primary.btn-lg {:type "button" :data-bs-dismiss "modal" :aria-label "Authorize"} "Authorize"])
+                           [:span.ms-2 "Authorization required!"]] 
+                  :footer [:button.btn.btn-primary.btn-lg {:type "button" :data-bs-dismiss "modal" :aria-label "Log in"} "Log in"])
    {:backdrop "static"}))
 
-(defn initialize-ui! [authorize!]
+(defn show-wait-dialog! [wait-chan]
+  (go-try
+   (let [wait-dialog (bs/make-modal :body [:div.container.overflow-hidden
+                                           [:div.row.text-center [:h3 "Waiting for google..."]]
+                                           [:div.row.m-1]
+                                           [:div.row.text-center [:i.fas.fa-circle-notch.fa-spin.fa-4x]]])]
+     (bs/show-modal wait-dialog {:backdrop "static"})
+     (<? wait-chan)
+     (bs/hide-modal wait-dialog))))
+
+(defn show-test-chart! []
+  (js/vegaEmbed
+   "#vis"
+   (clj->js {"data" {"url" "data/seattle-weather.csv"},
+             "mark" "bar",
+             :width 1024
+             :height 512
+             "encoding" {"x" {"timeUnit" "month",
+                              "field" "date",
+                              "type" "ordinal",
+                              "title" "Month of the year"},
+                         
+                         "y" {"aggregate" "count",
+                              "type" "quantitative"},
+                         "color" {"field" "weather",
+                                  "type" "nominal",
+                                  "scale" {"domain" ["sun", "fog", "drizzle", "rain", "snow"],
+                                           "range" ["#e7ba52", "#c7c7c7", "#aec7e8", "#1f77b4", "#9467bd"]},
+                                  "title" "Weather type"}}})
+   (clj->js {:mode :vega-lite})))
+
+(defn initialize-ui! []
   (go
-    (oset! js/document.body :innerHTML "")
-    (<! (show-authorization-dialog!))
-    (let [wait-dialog (bs/make-modal :header [:h2 "Waiting for google..."])]
-      (bs/show-modal wait-dialog {:backdrop "static"})
-      (<! (authorize!))
-      (bs/hide-modal wait-dialog))
-    (.appendChild js/document.body (main-container))
-    (let [authorize-btn (get-element-by-id "authorize-button")]
-      (bs/on-click authorize-btn authorize!))))
+    (doto js/document.body
+      (oset! :innerHTML "")
+      (.appendChild (main-container)))
+    (let [test-btn (get-element-by-id "test-btn")]
+      (bs/on-click test-btn #(show-test-chart!)))))
+
+(defn clear-ui! []
+  (oset! js/document.body :innerHTML ""))
+
+(comment
+  (do
+    
+    (js/vegaEmbed
+     "#vis"
+     (clj->js {"data" {"url" "data/seattle-weather.csv"},
+               "mark" "bar",
+               "encoding" {"x" {"timeUnit" "month",
+                                "field" "date",
+                                "type" "ordinal",
+                                "title" "Month of the year"},
+                           "y" {"aggregate" "count",
+                                "type" "quantitative"},
+                           "color" {"field" "weather",
+                                    "type" "nominal",
+                                    "scale" {"domain" ["sun", "fog", "drizzle", "rain", "snow"],
+                                             "range" ["#e7ba52", "#c7c7c7", "#aec7e8", "#1f77b4", "#9467bd"]},
+                                    "title" "Weather type"}}})
+     (clj->js {:mode :vega-lite})))
+  
+  
+  )

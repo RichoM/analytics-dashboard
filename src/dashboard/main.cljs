@@ -21,11 +21,39 @@
 
 (defn init []
   (go (print "RICHO!")
-      (ui/initialize-ui! authorize!)))
+      (<! (ui/show-authorization-dialog!))
+      (<? (ui/show-wait-dialog! (authorize!)))
+      (ui/initialize-ui!)))
 
 (defn ^:dev/before-load-async reload-begin* [done]
-  (go (init)
+  (go (ui/clear-ui!)
       (done)))
 
 (defn ^:dev/after-load-async reload-end* [done]
-  (go (done)))
+  (go (<! (init))
+      (done)))
+
+(comment
+  
+  (def !sessions (atom nil))
+
+  (last @!sessions)
+
+  (go 
+    (try
+      (reset! !sessions (<? (gs/get-values! spreadsheet-papacorps "sessions!A:K")))
+      (print "SUCCESS FETCHING SESSIONS!")
+      (catch :default err
+        (println "ERROR" err))))
+  
+  (def !matches (atom nil))
+
+  (count @!matches)
+
+  (go
+    (try
+      (reset! !matches (<? (gs/get-values! spreadsheet-papacorps "matches!A:I")))
+      (print "SUCCESS FETCHING MATCHES")
+      (catch :default err
+        (println "ERROR" err))))
+  )
