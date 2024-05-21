@@ -30,3 +30,10 @@
 
 (defn log [& msg]
   (apply println (.toISOString (js/Date.)) "-" msg))
+
+
+(defn pad-left
+  ([string len] (pad-left string len " "))
+  ([string len char]
+   (let [string (str string)]
+     (str (str/join (repeat (- len (count string)) char)) string))))

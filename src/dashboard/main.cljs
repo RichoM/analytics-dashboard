@@ -5,12 +5,17 @@
             [utils.gsheets :as gs]
             [utils.bootstrap :as bs]
             [utils.async :refer [go-try <?]]
+            [dashboard.data :as data]
             [dashboard.ui :as ui]))
 
 (enable-console-print!)
 
 (def credentials {:client_id "201101636025-l10ovc8h1fl4qnkd4fcpuq7d1gfot4f0.apps.googleusercontent.com"
                   :scope "https://www.googleapis.com/auth/spreadsheets.readonly"})
+
+(def spreadsheet (gs/Spreadsheet. "1Yj79TCA0I-73SpLtBQztqNNJ8e-ANPYX5TpPLGZmqqI"))
+
+(defonce !state (atom {}))
 
 (defn authorize! []
   (go (try
@@ -19,11 +24,28 @@
         (catch :default err
           (println "ERROR" err)))))
 
+(defn fetch-data! []
+  (go (try
+        (println "Fetching data...")
+        (when (nil? (:data @!state))
+          (println "Fetching...")
+          (swap! !state assoc
+                 :data (<? (data/fetch! spreadsheet))))
+        (println "Successfully fetched data")
+        (catch :default err
+          (println "ERROR" err)))))
+
 (defn init []
-  (go (print "RICHO!")
-      (<! (ui/show-authorization-dialog!))
-      (<? (ui/show-wait-dialog! (authorize!)))
-      (ui/initialize-ui!)))
+  (go (try
+        (print "RICHO!")
+        (<! (ui/show-authorization-dialog!))
+        (<? (ui/show-wait-dialog! "Waiting for google..."
+                                  (authorize!)))
+        (<? (ui/show-wait-dialog! "Loading data..."
+                                  (fetch-data!)))
+        (ui/initialize-ui! !state)
+        (catch :default err
+          (println "ERROR" err)))))
 
 (defn ^:dev/before-load-async reload-begin* [done]
   (go (ui/clear-ui!)
@@ -34,26 +56,14 @@
       (done)))
 
 (comment
-  
-  (def !sessions (atom nil))
 
-  (last @!sessions)
+  (def sessions (-> @!state :data :sessions))
+  (def matches (-> @!state :data :matches))
 
-  (go 
-    (try
-      (reset! !sessions (<? (gs/get-values! spreadsheet-papacorps "sessions!A:K")))
-      (print "SUCCESS FETCHING SESSIONS!")
-      (catch :default err
-        (println "ERROR" err))))
-  
-  (def !matches (atom nil))
+  (map :valid? sessions)
 
-  (count @!matches)
+  (set (map :version sessions))
+  (first sessions)
+  (time (data/sessions-by-day sessions))
 
-  (go
-    (try
-      (reset! !matches (<? (gs/get-values! spreadsheet-papacorps "matches!A:I")))
-      (print "SUCCESS FETCHING MATCHES")
-      (catch :default err
-        (println "ERROR" err))))
   )
