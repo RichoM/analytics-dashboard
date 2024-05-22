@@ -60,6 +60,7 @@
   (def sessions (-> @!state :data :sessions))
   (def matches (-> @!state :data :matches))
 
-  (first matches)
+  (meta (first matches))
+
 
   )

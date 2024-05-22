@@ -36,15 +36,16 @@
 (defn enrich-session
   [{:keys [date time duration_ms match_count version] :as session}]
   (let [duration-ms (parse-long duration_ms)]
-    (assoc session
-           :datetime (datetime date time)
-           :duration_ms duration-ms
-           :duration_s (/ duration-ms 1000)
-           :duration_m (/ duration-ms 1000 60)
-           :match_count (parse-long match_count)
-           :valid? (and (> duration-ms 0)
-                        (not (str/blank? version))
-                        (not (str/includes? version "DEMO"))))))
+    (map->Session
+     (assoc session
+            :datetime (datetime date time)
+            :duration_ms duration-ms
+            :duration_s (/ duration-ms 1000)
+            :duration_m (/ duration-ms 1000 60)
+            :match_count (parse-long match_count)
+            :valid? (and (> duration-ms 0)
+                         (not (str/blank? version))
+                         (not (str/includes? version "DEMO")))))))
 
 (defn get-sessions! [spreadsheet]
   (go-try (->> (<? (gs/get-values! spreadsheet "sessions!A:K"))
@@ -62,17 +63,19 @@
   [sessions-indexed {:keys [game session date time duration_ms local? player_count] :as match}]
   (let [actual-session (get-in sessions-indexed [game session])
         duration-ms (parse-long duration_ms)]
-    (assoc (with-meta match
-             {:session actual-session})
-           :datetime (datetime date time)
-           :duration_ms duration-ms
-           :duration_s (/ duration-ms 1000)
-           :duration_m (/ duration-ms 1000 60)
-           :local? (= local? "TRUE")
-           :player_count (parse-long player_count)
-           :valid? (and (> duration-ms 0)
-                        (not (str/blank? (:version actual-session)))
-                        (not (str/includes? (:version actual-session) "DEMO"))))))
+    (with-meta
+      (map->Match
+       (assoc match
+              :datetime (datetime date time)
+              :duration_ms duration-ms
+              :duration_s (/ duration-ms 1000)
+              :duration_m (/ duration-ms 1000 60)
+              :local? (= local? "TRUE")
+              :player_count (parse-long player_count)
+              :valid? (and (> duration-ms 0)
+                           (not (str/blank? (:version actual-session)))
+                           (not (str/includes? (:version actual-session) "DEMO")))))
+      {:session actual-session})))
 
 (defn get-matches! [spreadsheet sessions-indexed]
   (go-try (->> (<? (gs/get-values! spreadsheet "matches!A:I"))
