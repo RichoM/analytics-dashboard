@@ -13,8 +13,6 @@
 (def credentials {:client_id "201101636025-l10ovc8h1fl4qnkd4fcpuq7d1gfot4f0.apps.googleusercontent.com"
                   :scope "https://www.googleapis.com/auth/spreadsheets.readonly"})
 
-(def spreadsheet (gs/Spreadsheet. "1Yj79TCA0I-73SpLtBQztqNNJ8e-ANPYX5TpPLGZmqqI"))
-
 (defonce !state (atom {}))
 
 (defn authorize! []
@@ -27,8 +25,7 @@
 (defn fetch-data! []
   (go (try
         (println "Fetching data...")
-        (swap! !state assoc
-               :data (<? (data/fetch! spreadsheet)))
+        (swap! !state assoc :data (<? (data/fetch!)))
         (println "Successfully fetched data")
         (catch :default err
           (println "ERROR" err)))))
@@ -57,13 +54,12 @@
 
 (comment
 
+  
+  ( (first sessions))
+
   (def sessions (-> @!state :data :sessions))
   (def matches (-> @!state :data :matches))
 
-  (map :valid? sessions)
-
-  (set (map :version sessions))
-  (first sessions)
-  (time (data/sessions-by-day sessions))
+  (first matches)
 
   )

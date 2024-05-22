@@ -30,6 +30,9 @@
                   mode local? player_count session
                   valid?])
 
+(def data-sources [(gs/Spreadsheet. "1JFNNtlTGjFk3BJQFfSTTsQ7IuKjkdTPEcxT7MiLkRyY")
+                   (gs/Spreadsheet. "1Yj79TCA0I-73SpLtBQztqNNJ8e-ANPYX5TpPLGZmqqI")])
+
 (defn enrich-session
   [{:keys [date time duration_ms match_count version] :as session}]
   (let [duration-ms (parse-long duration_ms)]
@@ -43,25 +46,6 @@
                         (not (str/blank? version))
                         (not (str/includes? version "DEMO"))))))
 
-(defn enrich-match 
-  [sessions-by-id {:keys [session date time duration_ms local? player_count] :as match}]
-  (let [{:keys [version] :as actual-session} (sessions-by-id session)
-        duration-ms (parse-long duration_ms)]
-    (assoc (with-meta match
-             {:session actual-session})
-           :datetime (datetime date time)
-           :duration_ms duration-ms
-           :duration_s (/ duration-ms 1000)
-           :duration_m (/ duration-ms 1000 60)
-           :local? (= local? "TRUE")
-           :player_count (parse-long player_count)
-           :valid? (and (> duration-ms 0)
-                        (not (str/blank? version))
-                        (not (str/includes? version "DEMO"))))))
-
-(def data-sources [(gs/Spreadsheet. "1JFNNtlTGjFk3BJQFfSTTsQ7IuKjkdTPEcxT7MiLkRyY")
-                   (gs/Spreadsheet. "1Yj79TCA0I-73SpLtBQztqNNJ8e-ANPYX5TpPLGZmqqI")])
-
 (defn get-sessions! [spreadsheet]
   (go-try (->> (<? (gs/get-values! spreadsheet "sessions!A:K"))
                (rows->maps)
@@ -74,17 +58,34 @@
                      (map get-sessions!)
                      (a/map concat))))))
 
-(defn get-matches! [spreadsheet sessions]
+(defn enrich-match
+  [sessions-indexed {:keys [game session date time duration_ms local? player_count] :as match}]
+  (let [actual-session (get-in sessions-indexed [game session])
+        duration-ms (parse-long duration_ms)]
+    (assoc (with-meta match
+             {:session actual-session})
+           :datetime (datetime date time)
+           :duration_ms duration-ms
+           :duration_s (/ duration-ms 1000)
+           :duration_m (/ duration-ms 1000 60)
+           :local? (= local? "TRUE")
+           :player_count (parse-long player_count)
+           :valid? (and (> duration-ms 0)
+                        (not (str/blank? (:version actual-session)))
+                        (not (str/includes? (:version actual-session) "DEMO"))))))
+
+(defn get-matches! [spreadsheet sessions-indexed]
   (go-try (->> (<? (gs/get-values! spreadsheet "matches!A:I"))
                (rows->maps)
-               (mapv (partial enrich-match sessions)))))
+               (mapv (partial enrich-match sessions-indexed)))))
 
 (defn get-all-matches! [sessions]
   (go-try
-   (let [sessions (indexed-by :id sessions)]
+   (let [sessions-indexed (update-vals (group-by :game sessions)
+                                       (partial indexed-by :id))]
      (sort-by :datetime
               (<? (->> data-sources
-                       (map #(get-matches! % sessions))
+                       (map #(get-matches! % sessions-indexed))
                        (a/map concat)))))))
 
 (comment
@@ -93,13 +94,17 @@
 
   (count @all-sessions)
 
-  (set (map :game @all-sessions))
+  (def sessions-indexed
+    (update-vals (group-by :game @all-sessions)
+                 (partial indexed-by :id)))
+  
+  (get-in sessions-indexed ["AstroBrawl" "1ad9e9f6-9413-4e99-b810-541d035157c1"])
   
   (go (reset! all-sessions (<! (get-all-sessions!))))
   
   )
 
-(defn fetch! [spreadsheet]
+(defn fetch! []
   (go (try
         (let [sessions (<? (get-all-sessions!))
               matches (<? (get-all-matches! sessions))]
