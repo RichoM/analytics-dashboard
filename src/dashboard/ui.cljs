@@ -86,6 +86,23 @@
                     :point {:size 100}
                     :tooltip true}}]}])
 
+(defn session-duration [{:keys [sessions]}]
+  [:vega-lite.my-4
+   {:title "Duración de las sesiones"
+    :width 256
+    :height 512
+    :data {:values (filter :valid? sessions)}
+    :encoding {:x {:field :game
+                   :type :nominal
+                   :title "Juego"
+                   :axis {:labelAngle -35}
+                   :sort {:field :game}}
+               :y {:field :duration_m
+                   :type :quantitative
+                   :title "Duración (minutos)"}
+               :color {:field :game :title "Juego"}}
+    :layer [{:mark {:type "boxplot"}}]}])
+
 (defn match-duration [{:keys [matches]}]
   [:vega-lite.my-4
    {:title "Duración de las partidas"
@@ -107,8 +124,7 @@
                                            mode)
 
                                          (first (str/split mode #",")))))
-                        (remove #(< (:duration_s %) 3)
-                                (filter :valid? matches)))}
+                        (filter :valid? matches))}
     :encoding {:x {:field :mode
                    :type :nominal
                    :title "Tipo de partida"
@@ -171,6 +187,8 @@
      [:div.row.my-1]
      [:div.d-grid (side-bar-btn :sessions-and-matches "Sesiones y partidas")]
      [:div.row.my-1]
+     [:div.d-grid (side-bar-btn :session-duration "Duración de las sesiones")]
+     [:div.row.my-1]
      [:div.d-grid (side-bar-btn :match-duration "Duración de las partidas")]
      [:div.row.my-2]
      (map game-checkbox (-> @!state :data :games sort))]
@@ -179,6 +197,8 @@
      [:div#vis
       (when (visible-chart? :sessions-and-matches)
         (sessions-and-matches (:data @!state)))
+      (when (visible-chart? :session-duration)
+        (session-duration (:data @!state)))
       (when (visible-chart? :match-duration)
         (match-duration (:data @!state)))]]]])
 
