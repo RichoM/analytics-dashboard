@@ -12,16 +12,21 @@
                                 :match-duration {}}
                        :visible-charts #{:sessions-and-matches}}))
 
+(declare html)
+
 (defn html-vega [element]
   (if (vector? element)
-    (let [[type spec] element]
-      (case type
-        :vega-lite (doto (js/document.createElement "div")
-                     (js/vegaEmbed (clj->js spec)
-                                   (clj->js {:mode :vega-lite})))
+    (let [[tag & content] element
+          tag-str (str tag)
+          [attrs] (drop-last content)
+          spec (last content)]
+      (if (str/starts-with? tag-str ":vega-lite")
+        (doto (html [(keyword (str/replace-first tag-str ":vega-lite" "div"))
+                     (or attrs {})])
+          (js/vegaEmbed (clj->js spec)
+                        (clj->js {:mode :vega-lite})))
         (vec (keep html-vega element))))
     element))
-
 
 (defn html [element]
   (let [element (html-vega element)]
@@ -60,49 +65,8 @@
                             (html child)
                             child))))
 
-(defn show-test-chart! []
-  (doto (get-element-by-id "vis")
-    (clear!)
-    (append! [:vega-lite {"data" {"url" "data/seattle-weather.csv"},
-                          "mark" "bar",
-                          :width 1024
-                          :height 512
-                          "encoding" {"x" {"timeUnit" "month",
-                                           "field" "date",
-                                           "type" "ordinal",
-                                           "title" "Month of the year"},
-
-                                      "y" {"aggregate" "count",
-                                           "type" "quantitative"},
-                                      "color" {"field" "weather",
-                                               "type" "nominal",
-                                               "scale" {"domain" ["sun", "fog", "drizzle", "rain", "snow"],
-                                                        "range" ["#e7ba52", "#c7c7c7", "#aec7e8", "#1f77b4", "#9467bd"]},
-                                               "title" "Weather type"}}}])))
-
-(comment
-  
-  (html [:vega-lite {"data" {"url" "data/seattle-weather.csv"},
-                     "mark" "bar",
-                     :width 1024
-                     :height 512
-                     "encoding" {"x" {"timeUnit" "month",
-                                      "field" "date",
-                                      "type" "ordinal",
-                                      "title" "Month of the year"},
-
-                                 "y" {"aggregate" "count",
-                                      "type" "quantitative"},
-                                 "color" {"field" "weather",
-                                          "type" "nominal",
-                                          "scale" {"domain" ["sun", "fog", "drizzle", "rain", "snow"],
-                                                   "range" ["#e7ba52", "#c7c7c7", "#aec7e8", "#1f77b4", "#9467bd"]},
-                                          "title" "Weather type"}}}])
-  )
-
-
 (defn sessions-and-matches [{:keys [sessions matches]}]
-  [:vega-lite
+  [:vega-lite.my-4
    {:title "Sesiones y partidas por día"
     :width 1024
     :height 512
@@ -123,7 +87,7 @@
                     :tooltip true}}]}])
 
 (defn match-duration [{:keys [matches]}]
-  [:vega-lite
+  [:vega-lite.my-4
    {:title "Duración de las partidas"
     :width 512
     :height 512
@@ -183,7 +147,7 @@
 (defn main-container []
   [:div#main-container.container-fluid
    [:div.row
-    [:div#side-bar.col-auto.w-auto
+    [:div#side-bar.col-auto.w-auto.my-2
      [:div.row.my-1]
      [:div.d-grid (side-bar-btn :sessions-and-matches "Sesiones y partidas")]
      [:div.row.my-1]
