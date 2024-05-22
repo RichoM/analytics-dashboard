@@ -111,7 +111,8 @@
   (go (try
         (let [sessions (<? (get-all-sessions!))
               matches (<? (get-all-matches! sessions))]
-          {:sessions sessions
+          {:games (set (map :game sessions))
+           :sessions sessions
            :matches matches})
         (catch :default err
           (println "ERROR" err)))))
@@ -124,13 +125,15 @@
                                    end)))))
 
 (defn sessions-by-day [sessions matches]
-  (let [{begin :datetime} (first sessions)
-        {end :datetime} (last sessions)
-        sessions (group-by :date sessions)
-        matches (group-by :date matches)]
-    (->> (dates-between begin end)
-         (map #(.toISOString %))
-         (map #(first (str/split % "T")))
-         (mapcat (fn [date]
-                 [{:date date :type :session :count (count (sessions date))}
-                  {:date date :type :match :count (count (matches date))}])))))
+  (if (empty? sessions)
+    []
+    (let [{begin :datetime} (first sessions)
+          {end :datetime} (last sessions)
+          sessions (group-by :date sessions)
+          matches (group-by :date matches)]
+      (->> (dates-between begin end)
+           (map #(.toISOString %))
+           (map #(first (str/split % "T")))
+           (mapcat (fn [date]
+                     [{:date date :type :session :count (count (sessions date))}
+                      {:date date :type :match :count (count (matches date))}]))))))

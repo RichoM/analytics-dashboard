@@ -91,7 +91,7 @@
    {:title "Duración de las partidas"
     :width 512
     :height 512
-    :data {:values (map (fn [{:keys [game mode local?] :as match}]
+    :data {:values (mapv (fn [{:keys [game mode local?] :as match}]
                           (assoc match
                                  :mode (case game
                                          "AstroBrawl"
@@ -144,6 +144,26 @@
                              (disj visible-charts chart-id)
                              (conj visible-charts chart-id)))))))
 
+(defn game-keyword [game-name]
+  (-> game-name
+      (str/lower-case)
+      (str/replace #"[^a-zA-Z]+" "-")
+      (str/replace #"^-" "")
+      (keyword)))
+
+(defn game-checkbox [game-name]
+  (let [game-key (game-keyword game-name)
+        checked? (contains? (:game-filters @!state) game-name)]
+    (html [:div.form-check.form-switch.text-center.mx-3
+           (doto (html [:input.form-check-input {:id game-key :type "checkbox"
+                                                 :role "switch" :checked checked?}])
+             (bs/on-click #(swap! !state update :game-filters
+                                  (fn [filters]
+                                    (if (contains? filters game-name)
+                                      (disj filters game-name)
+                                      (conj filters game-name))))))
+           [:label.form-check-.ebal {:for game-key} game-name]])))
+
 (defn main-container []
   [:div#main-container.container-fluid
    [:div.row
@@ -153,9 +173,7 @@
      [:div.row.my-1]
      [:div.d-grid (side-bar-btn :match-duration "Duración de las partidas")]
      [:div.row.my-2]
-     [:div.form-check.form-switch.text-center.mx-3
-      [:input#ball-prediction.form-check-input {:type "checkbox" :role "switch" :checked false}]
-      [:label.form-check-.ebal {:for "ball-prediction"} "Retro Racing: Double Dash"]]]
+     (map game-checkbox (-> @!state :data :games sort))]
     [:div.col.w-auto.overflow-auto.vh-100
      [:div.my-1]
      [:div#vis
@@ -170,21 +188,32 @@
       (clear!)
       (append! (main-container))))
 
+(defn update-filters! [{:keys [sessions matches]}]
+  (let [filters (:game-filters @!state)]
+    (swap! !state update :data
+           assoc 
+           :sessions (filter (comp filters :game) sessions)
+           :matches (filter (comp filters :game) matches))))
+
 (defn initialize-ui! [data]
   (go
     (add-watch !state ::state-change #(update-ui!))
-    (swap! !state assoc :data data)))
+    (add-watch !state ::filter-change
+               (fn [_ _ old new]
+                 (when (not= (:game-filters old)
+                             (:game-filters new))
+                   (update-filters! data))))
+    (swap! !state assoc 
+           :data data
+           :game-filters (:games data))))
 
 (defn clear-ui! []
   (clear! (get-element-by-id "content")))
 
 (comment
-  (initialize-ui! dashboard.main/!state)
-
-  (keys @dashboard.main/!state)
-  (def data (:data @dashboard.main/!state))
-  (def sessions (:sessions data))
-  (def matches (:matches data))
+  
+  (def sessions (-> @!state :data :sessions))
+  (def matches (-> @!state :data :matches))
 
   (count sessions)
   (count matches)
