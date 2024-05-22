@@ -44,8 +44,9 @@
       [:div.row.my-1]
       [:div.d-grid (btn "test-btn" "Test")]
       [:div.row.my-1]
-      [:div.d-grid (btn "sessions-day-btn" "Sesiones por día")]
-      [:div.row.my-1]]
+      [:div.d-grid (btn "sessions-day-btn" "Sesiones y partidas")]
+      [:div.row.my-1]
+      [:div.d-grid (btn "match-duration-btn" "Duración de las partidas")]]
      [:div.col-auto
       [:div.my-1]
       [:div#vis]]]]))
@@ -76,19 +77,65 @@
 
 
 
-(defn show-sessions-per-day! [{:keys [sessions]}]
-  (show-chart! {:title "Sesiones por día"
+(defn show-sessions-per-day! [{:keys [sessions matches]}]
+  (show-chart! {:title "Sesiones y partidas por día"
                 :width 1024
                 :height 512
-                :data {:values (data/sessions-by-day (filter :valid? sessions))}
+                :data {:values (data/sessions-by-day (filter :valid? sessions)
+                                                     (filter :valid? matches))}
                 :encoding {:x {:field :date
                                :type :ordinal
                                :title "Fecha"
                                :axis {:labelAngle -35}}
-                           :y {:field :sessions
+                           :y {:field :count
                                :type :quantitative
-                               :title "Cantidad de sesiones"}}
-                :layer [{:mark {:type "line" :point true :tooltip true}}]}))
+                               :title "Cantidad"}
+                           :color {:field :type 
+                                   :type :nominal
+                                   :title "Tipo"}}
+                :layer [{:mark {:type "line" 
+                                :point {:size 100} 
+                                :tooltip true}}]}))
+
+(defn show-match-duration! [{:keys [matches]}]
+  (show-chart! {:width 512
+                :height 512
+                :data {:values (map (fn [{:keys [game mode local?] :as match}]
+                                      (assoc match
+                                             :mode (case game
+                                                     "AstroBrawl"
+                                                     (if (= mode "DEATHMATCH")
+                                                       (if local?
+                                                         "DEATHMATCH local"
+                                                         "DEATHMATCH online")
+                                                       mode)
+                                                     
+                                                     "Wizards of Lezama"
+                                                     (if (= mode "PRACTICE")
+                                                       "PAPABLANCA"
+                                                       mode)
+                                                     
+                                                     (first (str/split mode #",")))))
+                                    (remove #(< (:duration_s %) 3)
+                                            (filter :valid? matches)))}
+                :encoding {:x {:field :mode
+                               :type :nominal
+                               :title "Tipo de partida"
+                               :axis {:labelAngle -35}
+                               :sort {:field :game}}
+                           :y {:field :duration_m
+                               ;:aggregate :count
+                               :type :quantitative
+                               :title "Duración (minutos)"}
+                           :color {:field :game :title "Juego"}}
+                :layer [{:mark {:type "boxplot"}}
+                        #_{:mark {:type "errorband"
+                                :extent :iqr
+                                :point {:size 100}
+                                :tooltip true}}
+                         #_{:mark {:type :line
+                                :point true
+                                :tooltip true}}]}))
 
 (defn initialize-ui! [!state]
   (go
@@ -98,7 +145,26 @@
     (let [btn (get-element-by-id "test-btn")]
       (bs/on-click btn #(show-test-chart!)))
     (let [btn (get-element-by-id "sessions-day-btn")]
-      (bs/on-click btn #(show-sessions-per-day! (-> @!state :data))))))
+      (bs/on-click btn #(show-sessions-per-day! (-> @!state :data))))
+    (let [btn (get-element-by-id "match-duration-btn")]
+      (bs/on-click btn #(show-match-duration! (-> @!state :data))))))
 
 (defn clear-ui! []
   (oset! (get-element-by-id "content") :innerHTML ""))
+
+(comment
+  (initialize-ui! dashboard.main/!state)
+
+  (def data (:data @dashboard.main/!state))
+  (def sessions (:sessions data))
+  (def matches (:matches data))
+
+  (count sessions)
+  (count matches)
+
+  (count (filter :valid? matches))
+  (first matches)
+
+  (:session (meta (first matches)))
+  
+  )
