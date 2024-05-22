@@ -13,7 +13,7 @@
 (def credentials {:client_id "201101636025-l10ovc8h1fl4qnkd4fcpuq7d1gfot4f0.apps.googleusercontent.com"
                   :scope "https://www.googleapis.com/auth/spreadsheets.readonly"})
 
-(defonce !state (atom {}))
+(defonce !data (atom nil))
 
 (defn authorize! []
   (go (try
@@ -25,7 +25,7 @@
 (defn fetch-data! []
   (go (try
         (println "Fetching data...")
-        (swap! !state assoc :data (<? (data/fetch!)))
+        (reset! !data (<? (data/fetch!)))
         (println "Successfully fetched data")
         (catch :default err
           (println "ERROR" err)))))
@@ -37,10 +37,10 @@
           (<? (ui/show-authorization-dialog!))
           (<? (ui/show-wait-dialog! "Waiting for google..."
                                     (authorize!))))
-        (when (nil? (:data @!state))
+        (when (nil? @!data)
           (<? (ui/show-wait-dialog! "Loading data..."
                                     (fetch-data!))))
-        (ui/initialize-ui! !state)
+        (ui/initialize-ui! @!data)
         (catch :default err
           (println "ERROR" err)))))
 
