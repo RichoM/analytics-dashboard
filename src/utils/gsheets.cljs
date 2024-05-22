@@ -62,37 +62,10 @@
     (doto (ocall! js/gapi :client.sheets.spreadsheets.values.get
                   (clj->js {:spreadsheetId id :range range}))
       (.then (fn [response]
-               (js/console.log response)
+               (js/console.log "Success!" response)
                (a/put! c (js->clj (oget response :?result.?values)
                                   :keywordize-keys true)))
              (fn [err]
+               (js/console.log "Failure!" err)
                (a/put! c (promise-error err)))))
     c))
-
-
-(comment
-  
-  (js/console.log (ocall! js/gapi :client.sheets.spreadsheets.values.get
-          (clj->js {:spreadsheetId "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms" 
-                    :range "Class Data!A2:E"})))
-  
-  (Spreadsheet. "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms")
-
-  (go (try
-        (println (<? (get-values! (Spreadsheet. "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms")
-                                  "Class Data!A2:E")))
-        (catch :default err
-          (println "ERROR" err))))
-
-
-  (defn append! [{:keys [id auth]} range values]
-    (go-try
-     (let [response (<? (p->c (ocall! auth :spreadsheets.values.append
-                                      (clj->js {:spreadsheetId id
-                                                :range range
-                                                :valueInputOption "USER_ENTERED"
-                                                :requestBody {:values values}}))))]
-       (js->clj (oget response :?data)
-                :keywordize-keys true))))
-  
-  )
