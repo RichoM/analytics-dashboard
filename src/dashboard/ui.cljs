@@ -191,8 +191,10 @@
      [:div.row.my-1]
      [:div.d-grid (side-bar-btn :match-duration "Duración de las partidas")]
      [:div.row.my-2]
-     (map game-checkbox (-> @!state :data :games sort))]
-    [:div.col.w-auto.overflow-auto.vh-100
+     [:hr]
+     [:div
+      (map game-checkbox (-> @!state :data :games sort))]]
+    [:div#charts.col.w-auto.overflow-auto.vh-100
      [:div.my-1]
      [:div#vis
       (when (visible-chart? :sessions-and-matches)
@@ -204,9 +206,13 @@
 
 
 (defn update-ui! []
-  (doto (get-element-by-id "content")
+  (let [old-scroll (when-let [charts (get-element-by-id "charts")]
+                     (oget charts :scrollTop))]
+    (doto (get-element-by-id "content")
       (clear!)
-      (append! (main-container))))
+      (append! (main-container)))
+    (go (oset! (get-element-by-id "charts") 
+               :scrollTop (or old-scroll 0)))))
 
 (defn update-filters! [{:keys [sessions matches]}]
   (let [filters (:game-filters @!state)]
@@ -217,12 +223,13 @@
 
 (defn initialize-ui! [data]
   (go
-    (add-watch !state ::state-change #(update-ui!))
-    (add-watch !state ::filter-change
+    (add-watch !state ::state-change
                (fn [_ _ old new]
-                 (when (not= (:game-filters old)
-                             (:game-filters new))
-                   (update-filters! data))))
+                 (if (not= (:game-filters old)
+                           (:game-filters new))
+                   (update-filters! data)
+                   (update-ui!))
+                 ))
     (swap! !state assoc 
            :data data
            :game-filters (:games data))))
