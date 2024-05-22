@@ -92,7 +92,7 @@
 
 (defn initialize-ui! [!state]
   (go
-    (doto js/document.body
+    (doto (get-element-by-id "content")
       (oset! :innerHTML "")
       (.appendChild (main-container)))
     (let [btn (get-element-by-id "test-btn")]
@@ -101,4 +101,4 @@
       (bs/on-click btn #(show-sessions-per-day! (-> @!state :data))))))
 
 (defn clear-ui! []
-  (oset! js/document.body :innerHTML ""))
+  (oset! (get-element-by-id "content") :innerHTML ""))
