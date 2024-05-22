@@ -27,10 +27,8 @@
 (defn fetch-data! []
   (go (try
         (println "Fetching data...")
-        (when (nil? (:data @!state))
-          (println "Fetching...")
-          (swap! !state assoc
-                 :data (<? (data/fetch! spreadsheet))))
+        (swap! !state assoc
+               :data (<? (data/fetch! spreadsheet)))
         (println "Successfully fetched data")
         (catch :default err
           (println "ERROR" err)))))
@@ -38,11 +36,13 @@
 (defn init []
   (go (try
         (print "RICHO!")
-        (<! (ui/show-authorization-dialog!))
-        (<? (ui/show-wait-dialog! "Waiting for google..."
-                                  (authorize!)))
-        (<? (ui/show-wait-dialog! "Loading data..."
-                                  (fetch-data!)))
+        (when-not (gs/authorized?)
+          (<? (ui/show-authorization-dialog!))
+          (<? (ui/show-wait-dialog! "Waiting for google..."
+                                    (authorize!))))
+        (when (nil? (:data @!state))
+          (<? (ui/show-wait-dialog! "Loading data..."
+                                    (fetch-data!))))
         (ui/initialize-ui! !state)
         (catch :default err
           (println "ERROR" err)))))

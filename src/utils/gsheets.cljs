@@ -9,6 +9,9 @@
 
 (defonce !token-client (atom nil))
 
+(defn authorized? []
+  (some? @!token-client))
+
 (defn promise-error [err]
   (ex-info "Promise error"
            {:error :promise-error}
