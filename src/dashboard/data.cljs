@@ -5,7 +5,7 @@
             [utils.gsheets :as gs]
             [utils.bootstrap :as bs]
             [utils.async :refer [go-try <?]]
-            [utils.core :refer [pad-left indexed-by]]))
+            [utils.core :refer [pad-left]]))
 
 (defn rows->maps [rows]
   (let [columns (mapv keyword (first rows))]
@@ -52,30 +52,47 @@
                (rows->maps)
                (mapv enrich-session))))
 
+(defn deduplicate-ids [sessions]
+  (->> (group-by :id sessions)
+       (mapcat (fn [[id duplicate-sessions]]
+                 (map-indexed (fn [idx session]
+                                (-> session
+                                    (assoc :id (str id "." idx))
+                                    (vary-meta assoc :original-id id)))
+                              duplicate-sessions)))))
+
 (defn get-all-sessions! []
   (go-try
-   (sort-by :datetime
-            (<? (->> data-sources
-                     (map get-sessions!)
-                     (a/map concat))))))
+   (->> (<? (->> data-sources
+                 (map get-sessions!)
+                 (a/map concat)))
+        (deduplicate-ids)
+        (sort-by :datetime))))
 
 (defn enrich-match
   [sessions-indexed {:keys [game session date time duration_ms local? player_count] :as match}]
-  (let [actual-session (get-in sessions-indexed [game session])
-        duration-ms (parse-long duration_ms)]
-    (with-meta
-      (map->Match
-       (assoc match
-              :datetime (datetime date time)
-              :duration_ms duration-ms
-              :duration_s (/ duration-ms 1000)
-              :duration_m (/ duration-ms 1000 60)
-              :local? (= local? "TRUE")
-              :player_count (parse-long player_count)
-              :valid? (and (> duration-ms 0)
-                           (not (str/blank? (:version actual-session)))
-                           (not (str/includes? (:version actual-session) "DEMO")))))
-      {:session actual-session})))
+  (let [duration-ms (parse-long duration_ms)
+        begin-dt (datetime date time)
+        candidate-sessions (get-in sessions-indexed [game session])
+        actual-session (->> candidate-sessions
+                            (filter :valid?)
+                            (take-while (fn [{:keys [datetime]}] 
+                                          (<= datetime begin-dt)))
+                            (last))]
+    (-> match
+        (assoc :datetime begin-dt
+               :duration_ms duration-ms
+               :duration_s (/ duration-ms 1000)
+               :duration_m (/ duration-ms 1000 60)
+               :local? (= local? "TRUE")
+               :player_count (parse-long player_count)
+               :session (:id actual-session)
+               :valid? (and (> duration-ms 0)
+                            (some? actual-session)
+                            (not (str/blank? (:version actual-session)))
+                            (not (str/includes? (:version actual-session) "DEMO"))))
+        (map->Match)
+        (vary-meta assoc :session actual-session))))
 
 (defn get-matches! [spreadsheet sessions-indexed]
   (go-try (->> (<? (gs/get-values! spreadsheet "matches!A:I"))
@@ -85,27 +102,11 @@
 (defn get-all-matches! [sessions]
   (go-try
    (let [sessions-indexed (update-vals (group-by :game sessions)
-                                       (partial indexed-by :id))]
+                                       (partial group-by (comp :original-id meta)))]
      (sort-by :datetime
               (<? (->> data-sources
                        (map #(get-matches! % sessions-indexed))
                        (a/map concat)))))))
-
-(comment
-  
-  (def all-sessions (atom nil))
-
-  (count @all-sessions)
-
-  (def sessions-indexed
-    (update-vals (group-by :game @all-sessions)
-                 (partial indexed-by :id)))
-  
-  (get-in sessions-indexed ["AstroBrawl" "1ad9e9f6-9413-4e99-b810-541d035157c1"])
-  
-  (go (reset! all-sessions (<! (get-all-sessions!))))
-  
-  )
 
 (defn fetch! []
   (go (try
@@ -116,6 +117,21 @@
            :matches matches})
         (catch :default err
           (println "ERROR" err)))))
+
+(comment
+
+  (def data (atom nil))
+
+  (keys @data)
+
+  (first (-> @data :sessions))
+
+  (first (-> @data :matches))
+
+  (go (reset! data (<! (fetch!))))
+  
+  
+  )
 
 (defn dates-between [start end]
   (when (<= start end)
