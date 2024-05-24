@@ -10,9 +10,35 @@
 
 (defonce !state (atom {:charts {:sessions-and-matches {}
                                 :match-duration {}}
-                       :visible-charts #{:sessions-and-matches}}))
+                       :visible-charts #{:sessions-and-matches :session-duration
+                                         :match-duration}}))
 
 (declare html)
+
+(defonce !vega-views (atom []))
+
+(comment
+  
+  (count @!vega-views)
+  (ocall! (:element (first @!vega-views))
+          :remove)
+  
+  )
+
+(defn vega-finalize! []
+  (println "vega-finalize!")
+  (let [[old _] (reset-vals! !vega-views [])]
+    (doseq [view old]
+      (print "Fin!")
+      (ocall! view :finalize))))
+
+(defn vega-embed! [element spec]
+  (doto (js/vegaEmbed element
+                      (clj->js spec)
+                      (clj->js {:mode :vega-lite}))
+    (.then (fn [result]
+             (swap! !vega-views conj result)))
+    (.catch js/console.warn)))
 
 (defn html-vega [element]
   (if (vector? element)
@@ -23,8 +49,8 @@
       (if (str/starts-with? tag-str ":vega-lite")
         (doto (html [(keyword (str/replace-first tag-str ":vega-lite" "div"))
                      (or attrs {})])
-          (js/vegaEmbed (clj->js spec)
-                        (clj->js {:mode :vega-lite})))
+          (.appendChild (doto (js/document.createElement "div")
+                          (vega-embed! spec))))
         (vec (keep html-vega element))))
     element))
 
@@ -91,7 +117,9 @@
    {:title "Duración de las sesiones"
     :width 256
     :height 512
-    :data {:values (filter :valid? sessions)}
+    :data {:values (->> sessions
+                        (filter :valid?)
+                        (mapv #(select-keys % [:game :duration_m])))}
     :encoding {:x {:field :game
                    :type :nominal
                    :title "Juego"
@@ -108,23 +136,25 @@
    {:title "Duración de las partidas"
     :width 512
     :height 512
-    :data {:values (mapv (fn [{:keys [game mode local?] :as match}]
-                          (assoc match
-                                 :mode (case game
-                                         "AstroBrawl"
-                                         (if (= mode "DEATHMATCH")
-                                           (if local?
-                                             "DEATHMATCH local"
-                                             "DEATHMATCH online")
-                                           mode)
+    :data {:values (->> matches
+                        (filter :valid?)
+                        (map (fn [{:keys [game mode local?] :as match}]
+                               (assoc match
+                                      :mode (case game
+                                              "AstroBrawl"
+                                              (if (= mode "DEATHMATCH")
+                                                (if local?
+                                                  "DEATHMATCH local"
+                                                  "DEATHMATCH online")
+                                                mode)
 
-                                         "Wizards of Lezama"
-                                         (if (= mode "PRACTICE")
-                                           "PAPABLANCA"
-                                           mode)
+                                              "Wizards of Lezama"
+                                              (if (= mode "PRACTICE")
+                                                "PAPABLANCA"
+                                                mode)
 
-                                         (first (str/split mode #",")))))
-                        (filter :valid? matches))}
+                                              (first (str/split mode #","))))))
+                        (mapv #(select-keys % [:game :mode :duration_m])))}
     :encoding {:x {:field :mode
                    :type :nominal
                    :title "Tipo de partida"
@@ -197,15 +227,19 @@
     [:div#charts.col.w-auto.overflow-auto.vh-100
      [:div.my-1]
      [:div#vis
-      (when (visible-chart? :sessions-and-matches)
-        (sessions-and-matches (:data @!state)))
-      (when (visible-chart? :session-duration)
-        (session-duration (:data @!state)))
-      (when (visible-chart? :match-duration)
-        (match-duration (:data @!state)))]]]])
+      (if (visible-chart? :sessions-and-matches)
+        (sessions-and-matches (:data @!state))
+        [:div "1"])
+      (if (visible-chart? :session-duration)
+        (session-duration (:data @!state))
+        [:div "2"])
+      (if (visible-chart? :match-duration)
+        (match-duration (:data @!state))
+        [:div "3"])]]]])
 
 
 (defn update-ui! []
+  (vega-finalize!)
   (let [old-scroll (when-let [charts (get-element-by-id "charts")]
                      (oget charts :scrollTop))]
     (doto (get-element-by-id "content")
