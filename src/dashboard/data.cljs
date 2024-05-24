@@ -153,3 +153,28 @@
            (mapcat (fn [date]
                      [{:date date :type :session :count (count (sessions date))}
                       {:date date :type :match :count (count (matches date))}]))))))
+
+(defn matches-per-session [sessions matches]
+  (if (empty? sessions)
+    []
+    (let [{begin :datetime} (first sessions)
+          {end :datetime} (last sessions)
+          sessions (group-by :date sessions)
+          matches (group-by :session matches)]
+      (->> (dates-between begin end)
+           (map #(.toISOString %))
+           (map #(first (str/split % "T")))
+           (mapcat (fn [date]
+                     (mapv (fn [[game sessions]]
+                             (let [match-count (->> sessions
+                                                    (map :id)
+                                                    (map matches)
+                                                    (map count)
+                                                    (reduce +))]
+                               {:game game
+                                :matches match-count
+                                :sessions (count sessions)
+                                :matches-per-session (/ match-count
+                                                        (count sessions))
+                                :date date}))
+                           (group-by :game (sessions date)))))))))
