@@ -17,17 +17,19 @@
 
 (defonce !vega-views (atom []))
 
+(defonce !vega-cache (atom {}))
+
 (comment
   
-  (count @!vega-views)
+  (count @!vega-cache)
   (ocall! (:element (first @!vega-views))
           :remove)
   
   )
 
 (defn vega-finalize! []
-  (println "vega-finalize!")
-  (let [[old _] (reset-vals! !vega-views [])]
+  #_(println "vega-finalize!")
+  #_(let [[old _] (reset-vals! !vega-views [])]
     (doseq [view old]
       (print "Fin!")
       (ocall! view :finalize))))
@@ -40,17 +42,24 @@
              (swap! !vega-views conj result)))
     (.catch js/console.warn)))
 
+(defn vega-replace! [element]
+  (if-let [res (get @!vega-cache element)]
+    res
+    (let [[tag & content] element
+          [attrs] (drop-last content)
+          spec (last content)
+          res (doto (html [(keyword (str/replace-first (str tag) ":vega-lite" "div"))
+                           (or attrs {})])
+                (.appendChild (doto (js/document.createElement "div")
+                                (vega-embed! spec))))]
+      (swap! !vega-cache assoc element res)
+      res)))
+
 (defn html-vega [element]
   (if (vector? element)
-    (let [[tag & content] element
-          tag-str (str tag)
-          [attrs] (drop-last content)
-          spec (last content)]
-      (if (str/starts-with? tag-str ":vega-lite")
-        (doto (html [(keyword (str/replace-first tag-str ":vega-lite" "div"))
-                     (or attrs {})])
-          (.appendChild (doto (js/document.createElement "div")
-                          (vega-embed! spec))))
+    (let [[tag & content] element]
+      (if (str/starts-with? (str tag) ":vega-lite")
+        (vega-replace! element)
         (vec (keep html-vega element))))
     element))
 
