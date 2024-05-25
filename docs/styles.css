@@ -1,0 +1,12 @@
+#main-container {
+    font-family: 'AlegreyaSansRegular', Verdana, sans-serif;
+    user-select: none;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+  }
+  
+  #main-container h3 {
+    font-family: 'DatalegreyaThin', Verdana, sans-serif;
+  }
+  
