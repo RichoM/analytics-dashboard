@@ -141,7 +141,7 @@
 
   (go (reset! data (<! (fetch!))))
   
-  
+  (js/Date. "2024-05-06")
   )
 
 (defn dates-between [start end]
@@ -154,10 +154,11 @@
 (defn group-by-day [data]
   (if (empty? data)
     []
-    (let [{begin :datetime} (first data)
-          {end :datetime} (last data)
+    (let [{begin :date} (first data)
+          {end :date} (last data)
           grouped-data (group-by :date data)]
-      (->> (dates-between begin end)
+      (->> (dates-between (js/Date. begin)
+                          (js/Date. end))
            (map #(.toISOString %))
            (map #(first (str/split % "T")))
            (map (fn [date] [date (get grouped-data date [])]))))))
@@ -165,25 +166,40 @@
 (defn sessions-by-day [sessions matches]
   (if (empty? sessions)
     []
-    (let [{begin :datetime} (first sessions)
-          {end :datetime} (last sessions)
+    (let [{begin :date} (first sessions)
+          {end :date} (last sessions)
           sessions (group-by :date sessions)
           matches (group-by :date matches)]
-      (->> (dates-between begin end)
+      (->> (dates-between (js/Date. begin)
+                          (js/Date. end))
            (map #(.toISOString %))
            (map #(first (str/split % "T")))
            (mapcat (fn [date]
                      [{:date date :type :session :count (count (sessions date))}
                       {:date date :type :match :count (count (matches date))}]))))))
 
+(comment
+  (def state @dashboard.ui/!state)
+
+  
+  (def sessions (filter :valid? (-> state :data :sessions)))
+  (def matches (filter :valid? (-> state :data :matches)))
+  (def begin (:date (first sessions)))
+  (def end (:date (last sessions)))
+
+  end
+  
+  )
+
 (defn matches-per-session [sessions matches]
   (if (empty? sessions)
     []
-    (let [{begin :datetime} (first sessions)
-          {end :datetime} (last sessions)
+    (let [{begin :date} (first sessions)
+          {end :date} (last sessions)
           sessions (group-by :date sessions)
           matches (group-by :session matches)]
-      (->> (dates-between begin end)
+      (->> (dates-between (js/Date. begin) 
+                          (js/Date. end))
            (map #(.toISOString %))
            (map #(first (str/split % "T")))
            (mapcat (fn [date]

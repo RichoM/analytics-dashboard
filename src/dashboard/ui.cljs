@@ -124,6 +124,26 @@
                      :point {:size 100}
                      :tooltip true}}]}]
 
+   (comment
+     
+     (->> matches
+          (filter :valid?)
+          (filter (comp #{"Retro Racing: Double Dash"} :game))
+          (filter (comp #{"2024-05-25"} :date))
+          count)
+     
+     (->> sessions
+          (filter :valid?)
+          (filter (comp #{"Retro Racing: Double Dash"} :game))
+          (filter (comp #{"2024-05-25"} :date))
+          count)
+     
+
+     (->> matches 
+          (filter :valid?)
+          (last))
+     )
+
    [:vega-lite.my-4.col-auto
     {:title "Partidas por sesión (promedio)"
      :width 1024
@@ -223,7 +243,7 @@
 
 (defn players [{:keys [games sessions matches]}]
   [:div.row
-   
+
    [:vega-lite.my-4.col-auto
     {:title "Jugadores por día"
      :width 1024
@@ -243,93 +263,90 @@
                     :title "Cantidad"}
                 :color {:field :type
                         :title nil}}
-     :layer [{:mark {:type :bar :point true :tooltip true}}]}
-    ]
-    
-    [:p]
+     :layer [{:mark {:type :bar :point true :tooltip true}}]}]
+
+   [:p]
 
 
-    [:vega-lite.my-4.col-auto
-     {:title "Jugadores nuevos vs recurrentes (TOTAL)"
-      :data {:values (let [pcs (->> sessions
-                                    (filter :valid?)
-                                    (group-by :pc))
-                           freq-map (->> pcs
-                                         (map (fn [[pc sessions]]
-                                                (let [dates (set (map :date sessions))]
-                                                  (count dates))))
-                                         (frequencies))
-                           total (count pcs)
-                           new (get freq-map 1 0)
-                           returning (reduce + (vals (dissoc freq-map 1)))]
-                       [{:type :new :count new :text (percent (/ new total))}
-                        {:type :returning :count returning :text (percent (/ returning total))}])}
-      :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
-                 :order {:field "count", :type "quantitative", :sort "descending"},
-                 :color {:field "type",
-                         :title nil,
-                         :sort {:field "count", :order "descending"}},
-                 :text {:field :text, :type "nominal"}},
-      :layer [{:mark {:type "arc", :innerRadius 50, :point true, :tooltip true}},
-              {:mark {:type "text", :radius 75, :fill "black"}}]}]
-    
-    [:vega-lite.my-4.col-auto
-     {:title "Jugadores nuevos vs recurrentes (por juego)"
-      :width 512
-      :height 192
-      :data {:values (->> sessions
-                          (filter :valid?)
-                          (group-by :game)
-                          (mapcat (fn [[game sessions]]
-                                    (let [pcs (group-by :pc sessions)
-                                          freq-map (->> pcs
-                                                        (map (fn [[pc sessions]]
-                                                               (let [dates (set (map :date sessions))]
-                                                                 (count dates))))
-                                                        (frequencies))
-                                          total (count pcs)
-                                          new (get freq-map 1 0)
-                                          returning (reduce + (vals (dissoc freq-map 1)))]
-                                      [{:game game :type :new :count new :text (percent (/ new total))}
-                                       {:game game :type :returning :count returning :text (percent (/ returning total))}]))))}
-      :encoding {:y {:field :game
-                     :type :nominal
+   [:vega-lite.my-4.col-auto
+    {:title "Jugadores nuevos vs recurrentes (TOTAL)"
+     :data {:values (let [pcs (->> sessions
+                                   (filter :valid?)
+                                   (group-by :pc))
+                          freq-map (->> pcs
+                                        (map (fn [[pc sessions]]
+                                               (let [dates (set (map :date sessions))]
+                                                 (count dates))))
+                                        (frequencies))
+                          total (count pcs)
+                          new (get freq-map 1 0)
+                          returning (reduce + (vals (dissoc freq-map 1)))]
+                      [{:type :new :count new :text (percent (/ new total))}
+                       {:type :returning :count returning :text (percent (/ returning total))}])}
+     :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
+                :order {:field "count", :type "quantitative", :sort "descending"},
+                :color {:field "type",
+                        :title nil,
+                        :sort {:field "count", :order "descending"}},
+                :text {:field :text, :type "nominal"}},
+     :layer [{:mark {:type "arc", :innerRadius 50, :point true, :tooltip true}},
+             {:mark {:type "text", :radius 75, :fill "black"}}]}]
+
+   [:vega-lite.my-4.col-auto
+    {:title "Jugadores nuevos vs recurrentes (por juego)"
+     :width 512
+     :height 192
+     :data {:values (->> sessions
+                         (filter :valid?)
+                         (group-by :game)
+                         (mapcat (fn [[game sessions]]
+                                   (let [pcs (group-by :pc sessions)
+                                         freq-map (->> pcs
+                                                       (map (fn [[pc sessions]]
+                                                              (let [dates (set (map :date sessions))]
+                                                                (count dates))))
+                                                       (frequencies))
+                                         total (count pcs)
+                                         new (get freq-map 1 0)
+                                         returning (reduce + (vals (dissoc freq-map 1)))]
+                                     [{:game game :type :new :count new :text (percent (/ new total))}
+                                      {:game game :type :returning :count returning :text (percent (/ returning total))}]))))}
+     :encoding {:y {:field :game
+                    :type :nominal
                      ;:axis {:labelAngle -35}
-                     :title nil}
-                 :x {:field :count
-                     :type :quantitative
-                     :stack :normalize
-                     :axis {:format "%"},
-                     :title "Cantidad"}
-                 :color {:field :type
-                         :title nil}}
-      :layer [{:mark {:type :bar :point true :tooltip true}}]}]
-    
-    (comment
-      (do
-        (def games (-> @!state :data :games))
-        (def sessions (-> @!state :data :sessions))
-        (def matches (-> @!state :data :matches)))
-    
-      (count sessions)
-    
-      (->> sessions
-           (filter :valid?)
-           (map :pc)
-           (set)
-           (count))
-      (+ 326 23 7 4 2 4 1 1 2)
-      
-      
-      (->> sessions
-           (filter :valid?)
-           (group-by :pc)
-           (map (fn [[pc sessions]]
-                  (let [dates (set (map :date sessions))]
-                    (count dates))))
-           (frequencies))
-      
-      )])
+                    :title nil}
+                :x {:field :count
+                    :type :quantitative
+                    :stack :normalize
+                    :axis {:format "%"},
+                    :title "Cantidad"}
+                :color {:field :type
+                        :title nil}}
+     :layer [{:mark {:type :bar :point true :tooltip true}}]}]
+
+   (comment
+     (do
+       (def games (-> @!state :data :games))
+       (def sessions (-> @!state :data :sessions))
+       (def matches (-> @!state :data :matches)))
+
+     (count sessions)
+
+     (->> sessions
+          (filter :valid?)
+          (map :pc)
+          (set)
+          (count))
+     (+ 326 23 7 4 2 4 1 1 2)
+
+
+     (->> sessions
+          (filter :valid?)
+          (group-by :pc)
+          (map (fn [[pc sessions]]
+                 (let [dates (set (map :date sessions))]
+                   (count dates))))
+          (frequencies)))])
 
 (defn toggle-btn [text]
   (html [:button.r-button.btn.btn-sm.btn-outline-dark.rounded-pill
