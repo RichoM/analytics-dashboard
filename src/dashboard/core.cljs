@@ -1,4 +1,4 @@
-(ns dashboard.main
+(ns dashboard.core
   (:require [clojure.core.async :as a :refer [go <!]]
             [clojure.string :as str]
             [oops.core :refer [oget oset! ocall!]]
@@ -7,8 +7,6 @@
             [utils.async :refer [go-try <?]]
             [dashboard.data :as data]
             [dashboard.ui :as ui]))
-
-(enable-console-print!)
 
 (def credentials {:client_id "201101636025-l10ovc8h1fl4qnkd4fcpuq7d1gfot4f0.apps.googleusercontent.com"
                   :scope "https://www.googleapis.com/auth/spreadsheets.readonly"})
@@ -32,10 +30,8 @@
         (catch :default err
           (println "ERROR" err)))))
 
-(defn init []
-  ;(go (t/init))
+(defn init! []
   (go (try
-        (print "RICHO!")
         (when-not (gs/authorized?)
           (<? (ui/show-authorization-dialog!))
           (<? (ui/show-wait-dialog! "Waiting for google..."
@@ -47,23 +43,5 @@
         (catch :default err
           (println "ERROR" err)))))
 
-(defn ^:dev/before-load-async reload-begin* [done]
-  (go (ui/clear-ui!)
-      (done)))
-
-(defn ^:dev/after-load-async reload-end* [done]
-  (go (<! (init))
-      (done)))
-
-(comment
-
-  
-  ( (first sessions))
-
-  (def sessions (-> @!state :data :sessions))
-  (def matches (-> @!state :data :matches))
-
-  (meta (first matches))
-
-
-  )
+(defn exit! []
+  (ui/clear-ui!))

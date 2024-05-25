@@ -12,14 +12,19 @@
  ; Fix nREPL bug when using accented characters in a source file
  :jvm-opts ["-Dfile.encoding=UTF8"]
 
- :builds {:main {:target :browser
-                 :output-dir "public/main/js"
-                 :compiler-options {:optimizations :advanced
-                                    :infer-externs :auto
+ :builds {:dev {:target :browser
+                :output-dir "public/main/js"
+                :compiler-options {:optimizations :advanced
+                                   :infer-externs :auto
                                     ;:pseudo-names true
                                     ;:pretty-print true
-                                    }
-                 :modules {:main {:init-fn dashboard.main/init}}}
+                                   }
+                :modules {:main {:init-fn dashboard.main-dev/init}}}
+          :prod {:target :browser
+                 :output-dir "docs/js"
+                 :compiler-options {:optimizations :advanced
+                                    :infer-externs :auto}
+                 :modules {:main {:init-fn dashboard.main-prod/init}}}
           :test {:target :browser-test
                  :test-dir "public/test"
                  :ns-regexp "-test\\d?$"}}}

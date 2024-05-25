@@ -4,10 +4,13 @@
             [cljs.core.async.interop :refer [p->c] :refer-macros [<p!]]
             [utils.async :refer [go-try <?]]))
 
-(def API_KEY "AIzaSyCh3kNODhW_R90EOjjoqrK66HhIuKw9EDQ")
 (def DISCOVERY_DOC "https://sheets.googleapis.com/$discovery/rest?version=v4")
 
+(defonce !api-key (atom nil))
 (defonce !token-client (atom nil))
+
+(defn init-api-key! [key]
+  (reset! !api-key key))
 
 (defn authorized? []
   (some? @!token-client))
@@ -26,7 +29,7 @@
 (defn- init-gapi-client! []
   (let [c (a/promise-chan)]
     (doto (ocall! js/gapi :client.init
-                  (clj->js {:apiKey API_KEY
+                  (clj->js {:apiKey @!api-key
                             :discoveryDocs [DISCOVERY_DOC]}))
       (.then #(a/close! c))
       (.catch #(a/put! c (promise-error %))))
