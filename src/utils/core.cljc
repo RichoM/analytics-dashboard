@@ -37,3 +37,7 @@
   ([string len char]
    (let [string (str string)]
      (str (str/join (repeat (- len (count string)) char)) string))))
+
+
+(defn percent [n]
+  (str (.toFixed (* 100.0 n) 1) "%"))

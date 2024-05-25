@@ -1,6 +1,7 @@
 (ns dashboard.data
   (:require [clojure.core.async :as a :refer [go <!]]
             [clojure.string :as str]
+            [clojure.set :as set]
             [oops.core :refer [oget oset! ocall!]]
             [utils.gsheets :as gs]
             [utils.bootstrap :as bs]
@@ -140,6 +141,17 @@
                                      (.setDate (inc (.getDate start))))
                                    end)))))
 
+(defn group-by-day [data]
+  (if (empty? data)
+    []
+    (let [{begin :datetime} (first data)
+          {end :datetime} (last data)
+          grouped-data (group-by :date data)]
+      (->> (dates-between begin end)
+           (map #(.toISOString %))
+           (map #(first (str/split % "T")))
+           (map (fn [date] [date (get grouped-data date [])]))))))
+
 (defn sessions-by-day [sessions matches]
   (if (empty? sessions)
     []
@@ -178,3 +190,21 @@
                                                         (count sessions))
                                 :date date}))
                            (group-by :game (sessions date)))))))))
+
+(defn player-count-by-day [sessions]
+  (let [sessions-by-day (group-by-day sessions)
+        players-by-day (volatile! [])
+        returning-players (volatile! #{})]
+    (doseq [[date sessions] sessions-by-day]
+      (let [pcs (set (map :pc sessions))
+            total-count (count pcs)
+            new-pcs (remove @returning-players pcs)
+            new-count (count new-pcs)
+            returning-count (- total-count new-count)]
+        (vswap! players-by-day conj
+                {:date date
+                 :total total-count
+                 :new new-count
+                 :returning returning-count})
+        (vswap! returning-players set/union pcs)))
+    @players-by-day))

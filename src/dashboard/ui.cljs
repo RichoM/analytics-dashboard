@@ -1,11 +1,13 @@
 (ns dashboard.ui
   (:require [clojure.core.async :as a :refer [go <!]]
             [clojure.string :as str]
+            [clojure.set :as set]
             [oops.core :refer [oget oset! ocall!]]
             [utils.gsheets :as gs]
             [utils.bootstrap :as bs]
             [utils.async :refer [go-try <?]]
             [utils.frequencies :as f]
+            [utils.core :refer [indexed-by percent]]
             [crate.core :as crate]
             [dashboard.data :as data]))
 
@@ -101,8 +103,8 @@
                             child))))
 
 (defn sessions-and-matches [{:keys [games sessions matches]}]
-  [:div
-   [:vega-lite.my-4
+  [:div.row
+   [:vega-lite.my-4.col-auto
     {:title "Sesiones y partidas por día"
      :width 1024
      :height 512
@@ -122,73 +124,8 @@
                      :point {:size 100}
                      :tooltip true}}]}]
 
-
-
-   (comment
-
-     (- 1.36425 0.26025)
-
-
-
-     (* 1.5 2)
-
-     (def iqr (- 4.32905 1.4943166666666667))
-     (def lower-iqr (- 1.4943166666666667 (* 1.5 iqr)))
-     (def upper-iqr (+ 4.32905 (* 1.5 iqr)))
-
-     (utils.frequencies/stats
-      (->> matches
-           (filter :valid?)
-           (filter (comp #{"AstroBrawl"} :game))
-           (filter (comp #{"PRACTICE"} :mode))
-           (map :duration_m)
-           (frequencies))
-      :percentiles [2 98])
-
-
-
-
-
-
-     (utils.core/seek (comp #{"262d7564-667e-45a5-9016-a1abeda6861c"} :id)
-                      (filter :valid? sessions))
-
-     (filter (fn [{:keys [id platforms]}] (contains? platforms "Android"))
-             (map (fn [[id c]]
-                    (let [rows (->> sessions
-                                    (filter :valid?)
-                                    (filter (comp #{id} :id)))]
-                      {:id id
-                       :game (set (map :game rows))
-                       :platforms (set (map :platform rows))
-                       :count c
-                       :pc (set (map :pc rows))}))
-                  (reverse (sort-by second (filter (fn [[id n]] (> n 1))
-                                                   (update-vals (group-by :id sessions) count))))))
-
-     (take 10 (reverse (sort-by second (filter (fn [[id n]] (> n 1))
-                                               (update-vals (group-by :id sessions) count)))))
-
-     (utils.core/seek (comp #{"073036cb-fe42-420e-9e0f-de0ca8bc5e0a"} :id)
-                      (filter :valid? sessions))
-     (meta (utils.core/seek (comp #{"073036cb-fe42-420e-9e0f-de0ca8bc5e0a"} :session)
-                            matches))
-
-     (let [sessions-by-game (group-by :game (filter :valid? sessions))
-           matches-by-game (group-by :game (filter :valid? matches))]
-       (->> (sort games)
-            (mapcat (fn [game]
-                      (let [matches (group-by :session (matches-by-game game))
-                            sessions (->> (sessions-by-game game)
-                                          (map (fn [{:keys [id datetime]}]
-                                                 {:id id
-                                                  :game game :date datetime
-                                                  :match_count (count (matches id))})))]
-                        sessions))))))
-
-
-   [:vega-lite.my-4
-    {:title "Cantidad de partidas por sesión"
+   [:vega-lite.my-4.col-auto
+    {:title "Partidas por sesión (promedio)"
      :width 1024
      :height 512
      :data {:values (data/matches-per-session (filter :valid? sessions)
@@ -199,7 +136,7 @@
                     :axis {:labelAngle -35}}
                 :y {:field :matches-per-session
                     :type :quantitative
-                    :title "Partidas por sesión (promedio)"}
+                    :title "Partidas"}
                 :color {:field :game
                         :type :nominal
                         :title "Juego"}}
@@ -207,7 +144,7 @@
                      :point {:size 100}
                      :tooltip true}}]}]
 
-   [:vega-lite.my-4
+   [:vega-lite.my-4.col-auto
     {:title "Duración de las sesiones"
      :width 256
      :height 512
@@ -226,8 +163,8 @@
      :layer [{:mark {:type "boxplot"}}]}]
 
 
-   [:vega-lite.my-4
-    {:title "Duración de las partidas"
+   [:vega-lite.my-4.col-auto
+    {:title "Duración de las partidas (excluyendo outliers)"
      :width 512
      :height 512
      :data {:values (->> matches
@@ -235,7 +172,7 @@
                          (map (fn [{:keys [game mode local?] :as match}]
                                 (assoc match
                                        :mode (case (str/lower-case game)
-                                               
+
                                                "astrobrawl"
                                                (if (= mode "DEATHMATCH")
                                                  (if local?
@@ -247,7 +184,7 @@
                                                (if (= mode "PRACTICE")
                                                  "PAPABLANCA"
                                                  mode)
-                                               
+
                                                "retro racing: double dash"
                                                (let [mode (first (str/split mode #","))]
                                                  (if (= mode "RACE")
@@ -269,12 +206,12 @@
                                    :median (percentiles :p50)
                                    :q3 (percentiles :p75)
                                    :upper (percentiles :p91)}))))},
-     :encoding {:x {:field :mode, :type "nominal" 
+     :encoding {:x {:field :mode, :type "nominal"
                     :title "Tipo de partida"
                     :axis {:labelAngle -35}
                     :sort {:field :game}}
                 :y {:title "Duración (minutos)"}},
-     :layer [{:mark {:type "rule" },
+     :layer [{:mark {:type "rule"},
               :encoding {:y {:field :lower, :type "quantitative", :scale {:zero false}},
                          :y2 {:field :upper}}},
              {:mark {:type "bar", :size 14 :tooltip {:content "data"}},
@@ -283,6 +220,116 @@
                          :color {:field :game, :type "nominal" :title "Juego"}}},
              {:mark {:type "tick", :color "white", :size 14},
               :encoding {:y {:field :median, :type "quantitative"}}}]}]])
+
+(defn players [{:keys [games sessions matches]}]
+  [:div.row
+   
+   [:vega-lite.my-4.col-auto
+    {:title "Jugadores por día"
+     :width 1024
+     :height 512
+     :data {:values (->> sessions
+                         (filter :valid?)
+                         (data/player-count-by-day)
+                         (mapcat (fn [{:keys [date new returning]}]
+                                   [{:date date :type :new :count new}
+                                    {:date date :type :returning :count returning}])))}
+     :encoding {:x {:field :date
+                    :type :ordinal
+                    :axis {:labelAngle -35}
+                    :title "Fecha"}
+                :y {:field :count
+                    :type :quantitative
+                    :title "Cantidad"}
+                :color {:field :type
+                        :title nil}}
+     :layer [{:mark {:type :bar :point true :tooltip true}}]}
+    ]
+    
+    [:p]
+
+
+    [:vega-lite.my-4.col-auto
+     {:title "Jugadores nuevos vs recurrentes (TOTAL)"
+      :data {:values (let [pcs (->> sessions
+                                    (filter :valid?)
+                                    (group-by :pc))
+                           freq-map (->> pcs
+                                         (map (fn [[pc sessions]]
+                                                (let [dates (set (map :date sessions))]
+                                                  (count dates))))
+                                         (frequencies))
+                           total (count pcs)
+                           new (get freq-map 1 0)
+                           returning (reduce + (vals (dissoc freq-map 1)))]
+                       [{:type :new :count new :text (percent (/ new total))}
+                        {:type :returning :count returning :text (percent (/ returning total))}])}
+      :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
+                 :order {:field "count", :type "quantitative", :sort "descending"},
+                 :color {:field "type",
+                         :title nil,
+                         :sort {:field "count", :order "descending"}},
+                 :text {:field :text, :type "nominal"}},
+      :layer [{:mark {:type "arc", :innerRadius 50, :point true, :tooltip true}},
+              {:mark {:type "text", :radius 75, :fill "black"}}]}]
+    
+    [:vega-lite.my-4.col-auto
+     {:title "Jugadores nuevos vs recurrentes (por juego)"
+      :width 512
+      :height 192
+      :data {:values (->> sessions
+                          (filter :valid?)
+                          (group-by :game)
+                          (mapcat (fn [[game sessions]]
+                                    (let [pcs (group-by :pc sessions)
+                                          freq-map (->> pcs
+                                                        (map (fn [[pc sessions]]
+                                                               (let [dates (set (map :date sessions))]
+                                                                 (count dates))))
+                                                        (frequencies))
+                                          total (count pcs)
+                                          new (get freq-map 1 0)
+                                          returning (reduce + (vals (dissoc freq-map 1)))]
+                                      [{:game game :type :new :count new :text (percent (/ new total))}
+                                       {:game game :type :returning :count returning :text (percent (/ returning total))}]))))}
+      :encoding {:y {:field :game
+                     :type :nominal
+                     ;:axis {:labelAngle -35}
+                     :title nil}
+                 :x {:field :count
+                     :type :quantitative
+                     :stack :normalize
+                     :axis {:format "%"},
+                     :title "Cantidad"}
+                 :color {:field :type
+                         :title nil}}
+      :layer [{:mark {:type :bar :point true :tooltip true}}]}]
+    
+    (comment
+      (do
+        (def games (-> @!state :data :games))
+        (def sessions (-> @!state :data :sessions))
+        (def matches (-> @!state :data :matches)))
+    
+      (count sessions)
+    
+      (->> sessions
+           (filter :valid?)
+           (map :pc)
+           (set)
+           (count))
+      (+ 326 23 7 4 2 4 1 1 2)
+      
+      
+      (->> sessions
+           (filter :valid?)
+           (group-by :pc)
+           (map (fn [[pc sessions]]
+                  (let [dates (set (map :date sessions))]
+                    (count dates))))
+           (frequencies))
+      
+      )])
 
 (defn toggle-btn [text]
   (html [:button.r-button.btn.btn-sm.btn-outline-dark.rounded-pill
@@ -349,7 +396,9 @@
      [:div.my-1]
      [:div
       (when (visible-chart? :sessions-and-matches)
-        (sessions-and-matches (:data @!state)))]]]])
+        (sessions-and-matches (:data @!state)))
+      (when (visible-chart? :players)
+        (players (:data @!state)))]]]])
 
 
 (defn update-ui! []
@@ -386,10 +435,10 @@
   (clear! (get-element-by-id "content")))
 
 (comment
-  
-  (def games (-> @!state :data :games))
-  (def sessions (-> @!state :data :sessions))
-  (def matches (-> @!state :data :matches))
+  (do
+    (def games (-> @!state :data :games))
+    (def sessions (-> @!state :data :sessions))
+    (def matches (-> @!state :data :matches)))
 
   (count sessions)
   (count matches)
@@ -397,6 +446,6 @@
   (count (filter :valid? matches))
   (first matches)
 
-  (:session (meta (first matches))) 
-  
+  (:session (meta (first matches)))
+
   )
