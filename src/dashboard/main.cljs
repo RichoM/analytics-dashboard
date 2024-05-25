@@ -6,8 +6,7 @@
             [utils.bootstrap :as bs]
             [utils.async :refer [go-try <?]]
             [dashboard.data :as data]
-            [dashboard.ui :as ui]
-            [dashboard.test :as t]))
+            [dashboard.ui :as ui]))
 
 (enable-console-print!)
 
