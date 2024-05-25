@@ -49,9 +49,14 @@
                          (not (str/includes? version "DEMO")))))))
 
 (defn get-sessions! [spreadsheet]
-  (go-try (->> (<? (gs/get-values! spreadsheet "sessions!A:K"))
-               (rows->maps)
-               (mapv enrich-session))))
+  (go
+    (try (->> (<? (gs/get-values! spreadsheet "sessions!A:K"))
+              (rows->maps)
+              (mapv enrich-session))
+         (catch :default err
+           (println "Error trying to fetch sessions from spreadsheet" 
+                    {:spreadsheet spreadsheet :error err})
+           []))))
 
 (defn deduplicate-ids [sessions]
   (->> (group-by :id sessions)
@@ -96,9 +101,14 @@
         (vary-meta assoc :session actual-session))))
 
 (defn get-matches! [spreadsheet sessions-indexed]
-  (go-try (->> (<? (gs/get-values! spreadsheet "matches!A:I"))
+  (go 
+    (try (->> (<? (gs/get-values! spreadsheet "matches!A:I"))
                (rows->maps)
-               (mapv (partial enrich-match sessions-indexed)))))
+               (mapv (partial enrich-match sessions-indexed)))
+         (catch :default err
+           (println "Error trying to fetch matches from spreadsheet"
+                    {:spreadsheet spreadsheet :error err})
+           []))))
 
 (defn get-all-matches! [sessions]
   (go-try

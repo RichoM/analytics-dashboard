@@ -26,8 +26,10 @@
 (defn fetch-data! []
   (go (try
         (println "Fetching data...")
-        (reset! !data (<? (data/fetch!)))
-        (println "Successfully fetched data")
+        (let [data (<? (data/fetch!))]
+          (when (seq (:games data))
+            (println "Successfully fetched data")
+            (reset! !data data)))
         (catch :default err
           (println "ERROR" err)))))
 

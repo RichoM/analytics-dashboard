@@ -384,10 +384,6 @@
      [:div.d-grid (side-bar-btn :sessions-and-matches "Sesiones y partidas")]
      [:div.row.my-1]
      [:div.d-grid (side-bar-btn :players "Jugadores")]
-     [:div.row.my-1]
-     [:div.d-grid (side-bar-btn :platforms "Plataformas")]
-     [:div.row.my-1]
-     [:div.d-grid (side-bar-btn :countries "Países")]
      [:div.row.my-2]
      [:hr]
      [:div
@@ -420,16 +416,17 @@
 
 (defn initialize-ui! [data]
   (go
-    (add-watch !state ::state-change
-               (fn [_ _ old new]
-                 (if (not= (:game-filters old)
-                           (:game-filters new))
-                   (update-filters! data)
-                   (update-ui!))
-                 ))
-    (swap! !state assoc 
-           :data data
-           :game-filters (:games data))))
+    (if (nil? data)
+      (js/window.location.replace "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+      (do (add-watch !state ::state-change
+                     (fn [_ _ old new]
+                       (if (not= (:game-filters old)
+                                 (:game-filters new))
+                         (update-filters! data)
+                         (update-ui!))))
+          (swap! !state assoc
+                 :data data
+                 :game-filters (:games data))))))
 
 (defn clear-ui! []
   (clear! (get-element-by-id "content")))
