@@ -38,6 +38,7 @@
    (let [string (str string)]
      (str (str/join (repeat (- len (count string)) char)) string))))
 
-
 (defn percent [n]
-  (str (.toFixed (* 100.0 n) 1) "%"))
+  #?(:clj  (str (format "%.1f" (* 100.0 n)) "%")
+     :cljs (str (.toFixed (* 100.0 n) 1) "%")))
+
