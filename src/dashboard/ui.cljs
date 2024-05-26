@@ -229,15 +229,17 @@
                            freq-map (frequencies platforms)
                            total (count platforms)]
                        (map (fn [[platform count]]
-                              {:type platform :count count :text (percent (/ count total))})
+                              {:type platform :count count 
+                               :percent (percent (/ count total))})
                             freq-map))}
       :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
                  :order {:field "count", :type "quantitative", :sort "descending"},
                  :color {:field "type",
                          :title nil,
                          :sort {:field "count", :order "descending"}},
-                 :text {:field :text, :type "nominal"}},
-      :layer [{:mark {:type "arc", :innerRadius 50, :point true, :tooltip true}},
+                 :text {:field :percent, :type "nominal"}},
+      :layer [{:mark {:type "arc", :innerRadius 50, :point true, 
+                      :tooltip {:content "data"}}},
               {:mark {:type "text", :radius 75, :fill "black"}}]}]
 
     [:vega-lite.my-4.col-auto
@@ -248,15 +250,17 @@
                            freq-map (frequencies platforms)
                            total (count platforms)]
                        (map (fn [[platform count]]
-                              {:type platform :count count :text (percent (/ count total))})
+                              {:type platform :count count 
+                               :percent (percent (/ count total))})
                             freq-map))}
       :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
                  :order {:field "count", :type "quantitative", :sort "descending"},
                  :color {:field "type",
                          :title nil,
                          :sort {:field "count", :order "descending"}},
-                 :text {:field :text, :type "nominal"}},
-      :layer [{:mark {:type "arc", :innerRadius 50, :point true, :tooltip true}},
+                 :text {:field :percent, :type "nominal"}},
+      :layer [{:mark {:type "arc", :innerRadius 50, :point true, 
+                      :tooltip {:content "data"}}},
               {:mark {:type "text", :radius 75, :fill "black"}}]}]]
 
    [:div.row
@@ -379,15 +383,18 @@
                           total (count pcs)
                           new (get freq-map 1 0)
                           returning (reduce + (vals (dissoc freq-map 1)))]
-                      [{:type :new :count new :text (percent (/ new total))}
-                       {:type :returning :count returning :text (percent (/ returning total))}])}
+                      [{:type :new :count new 
+                        :percent (percent (/ new total))}
+                       {:type :returning :count returning 
+                        :percent (percent (/ returning total))}])}
      :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
                 :order {:field "count", :type "quantitative", :sort "descending"},
                 :color {:field "type",
                         :title nil,
                         :sort {:field "count", :order "descending"}},
-                :text {:field :text, :type "nominal"}},
-     :layer [{:mark {:type "arc", :innerRadius 50, :point true, :tooltip true}},
+                :text {:field :percent, :type "nominal"}},
+     :layer [{:mark {:type "arc", :innerRadius 50, :point true, 
+                     :tooltip {:content "data"}}},
              {:mark {:type "text", :radius 75, :fill "black"}}]}]
 
    [:vega-lite.my-4.col-auto
@@ -407,8 +414,10 @@
                                          total (count pcs)
                                          new (get freq-map 1 0)
                                          returning (reduce + (vals (dissoc freq-map 1)))]
-                                     [{:game game :type :new :count new :text (percent (/ new total))}
-                                      {:game game :type :returning :count returning :text (percent (/ returning total))}]))))}
+                                     [{:game game :type :new :count new 
+                                       :percent (percent (/ new total))}
+                                      {:game game :type :returning :count returning 
+                                       :percent (percent (/ returning total))}]))))}
      :encoding {:y {:field :game
                     :type :nominal
                      ;:axis {:labelAngle -35}
@@ -420,7 +429,8 @@
                     :title "Cantidad"}
                 :color {:field :type
                         :title nil}}
-     :layer [{:mark {:type :bar :point true :tooltip true}}]}]
+     :layer [{:mark {:type :bar :point true 
+                     :tooltip {:content "data"}}}]}]
      
      (comment
        (do
@@ -458,15 +468,16 @@
                              freq-map (frequencies platforms)
                              total (count platforms)]
                          (map (fn [[platform count]]
-                                {:type platform :count count :text (percent (/ count total))})
+                                {:type platform :count count :percent (percent (/ count total))})
                               freq-map))}
         :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
                    :order {:field "count", :type "quantitative", :sort "descending"},
                    :color {:field "type",
                            :title nil,
                            :sort {:field "count", :order "descending"}},
-                   :text {:field :text, :type "nominal"}},
-        :layer [{:mark {:type "arc", :innerRadius 50, :point true, :tooltip true}},
+                   :text {:field :percent, :type "nominal"}},
+        :layer [{:mark {:type "arc", :innerRadius 50, :point true, 
+                        :tooltip {:content "data"}}},
                 {:mark {:type "text", :radius 75, :fill "black"}}]}]]])
 
 (defn toggle-btn [text]
