@@ -161,7 +161,7 @@
                      :title "Duración (minutos)"}
                  :color {:field :game :title "Juego"}}
       :layer [{:mark {:type "boxplot"}}]}]
-    
+
     [:vega-lite.my-4.col-auto
      {:title "Duración de las partidas (excluyendo outliers)"
       :width 512
@@ -220,17 +220,9 @@
               {:mark {:type "tick", :color "white", :size 14},
                :encoding {:y {:field :median, :type "quantitative"}}}]}]]
 
-   (comment
-     (do
-       (def games (-> @!state :data :games))
-       (def sessions (-> @!state :data :sessions))
-       (def matches (-> @!state :data :matches)))
-
-     (count sessions))
-
    [:div.row
     [:vega-lite.my-4.col-auto
-     {:title "Plataformas"
+     {:title "Sesiones por plataforma"
       :data {:values (let [platforms (->> sessions
                                           (filter :valid?)
                                           (map :platform))
@@ -246,7 +238,106 @@
                          :sort {:field "count", :order "descending"}},
                  :text {:field :text, :type "nominal"}},
       :layer [{:mark {:type "arc", :innerRadius 50, :point true, :tooltip true}},
-              {:mark {:type "text", :radius 75, :fill "black"}}]}]]])
+              {:mark {:type "text", :radius 75, :fill "black"}}]}]
+
+    [:vega-lite.my-4.col-auto
+     {:title "Partidas por plataforma"
+      :data {:values (let [platforms (->> matches
+                                          (filter :valid?)
+                                          (map (comp :platform :session meta)))
+                           freq-map (frequencies platforms)
+                           total (count platforms)]
+                       (map (fn [[platform count]]
+                              {:type platform :count count :text (percent (/ count total))})
+                            freq-map))}
+      :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
+                 :order {:field "count", :type "quantitative", :sort "descending"},
+                 :color {:field "type",
+                         :title nil,
+                         :sort {:field "count", :order "descending"}},
+                 :text {:field :text, :type "nominal"}},
+      :layer [{:mark {:type "arc", :innerRadius 50, :point true, :tooltip true}},
+              {:mark {:type "text", :radius 75, :fill "black"}}]}]]
+
+   [:div.row
+    [:vega-lite.col-auto
+     {:title "Sesiones por versión"
+      :width 256
+      :height 256
+      :data {:values (->> sessions
+                          (filter :valid?)
+                          (map #(select-keys % [:game :version]))
+                          (group-by :game)
+                          (mapcat (fn [[game sessions]]
+                                    (map (fn [[version count]]
+                                           {:game game :version (str game " v" version) :count count})
+                                         (update-vals (group-by :version sessions) count)))))}
+      :encoding {:x {:field :version
+                     :type :ordinal
+                     :axis {:labelAngle -35}
+                     :title "Fecha"}
+                 :y {:field :count
+                     :type :quantitative
+                     :title "Cantidad"}
+                 :color {:field :game
+                         :title nil}}
+      :layer [{:mark {:type :bar :point true :tooltip true}}]}]
+      
+      [:vega-lite.col-auto
+       {:title "Partidas por versión"
+        :width 256
+        :height 256
+        :data {:values (->> matches
+                            (filter :valid?)
+                            (map (fn [match]
+                                   (assoc match :version (-> match meta :session :version))))
+                            (map #(select-keys % [:game :version]))
+                            (group-by :game)
+                            (mapcat (fn [[game matches]]
+                                      (map (fn [[version count]]
+                                             {:game game :version (str game " v" version) :count count})
+                                           (update-vals (group-by :version matches) count)))))}
+        :encoding {:x {:field :version
+                       :type :ordinal
+                       :axis {:labelAngle -35}
+                       :title "Fecha"}
+                   :y {:field :count
+                       :type :quantitative
+                       :title "Cantidad"}
+                   :color {:field :game
+                           :title nil}}
+        :layer [{:mark {:type :bar :point true :tooltip true}}]}]]
+
+
+   [:vega-lite
+    {:title "Sesiones por país",
+     :projections [{:name "projection",
+                    :type "naturalEarth1",
+                    :scale 190,
+                    :rotate [0, 0, 0],
+                    :center [0, 0]}],
+
+     :data [{:name "world",
+             :url "https://vega.github.io/editor/data/world-110m.json",
+             :format {:type "topojson",
+                      :feature "countries"}},
+            {:name "graticule",
+             :transform [{:type "graticule"}]}],
+
+     :marks [{:type "shape",
+              :from {:data "graticule"},
+              :encode {:update {:strokeWidth {:value 1},
+                                :strokeDash {:value [2, 5]},
+                                :stroke {:value "#abc"},
+                                :fill {:value nil}}},
+              :transform [{:type "geoshape", :projection "projection"}]},
+             {:type "shape",
+              :from {:data "world"},
+              :encode {:update {:strokeWidth {:value 0.5},
+                                :stroke {:value "#fff"},
+                                :fill {:value "#aaa"},
+                                :zindex {:value 0}}},
+              :transform [{:type "geoshape", :projection "projection"}]}]}]])
 
 (defn players [{:keys [games sessions matches]}]
   [:div.row
@@ -329,7 +420,41 @@
                     :title "Cantidad"}
                 :color {:field :type
                         :title nil}}
-     :layer [{:mark {:type :bar :point true :tooltip true}}]}]])
+     :layer [{:mark {:type :bar :point true :tooltip true}}]}]
+     
+     (comment
+       (do
+         (def games (-> @!state :data :games))
+         (def sessions (-> @!state :data :sessions))
+         (def matches (-> @!state :data :matches)))
+     
+       (count sessions)
+     
+       (first matches)
+       
+     
+       
+       )
+
+     #_[:div.row
+      [:vega-lite.my-4.col-auto
+       {:title "Jugadores por plataforma"
+        :data {:values (let [platforms (->> sessions
+                                            (filter :valid?)
+                                            (map #(select-keys % [:pc :platform])))
+                             freq-map (frequencies platforms)
+                             total (count platforms)]
+                         (map (fn [[platform count]]
+                                {:type platform :count count :text (percent (/ count total))})
+                              freq-map))}
+        :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
+                   :order {:field "count", :type "quantitative", :sort "descending"},
+                   :color {:field "type",
+                           :title nil,
+                           :sort {:field "count", :order "descending"}},
+                   :text {:field :text, :type "nominal"}},
+        :layer [{:mark {:type "arc", :innerRadius 50, :point true, :tooltip true}},
+                {:mark {:type "text", :radius 75, :fill "black"}}]}]]])
 
 (defn toggle-btn [text]
   (html [:button.r-button.btn.btn-sm.btn-outline-dark.rounded-pill
