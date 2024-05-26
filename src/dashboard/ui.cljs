@@ -7,7 +7,7 @@
             [utils.bootstrap :as bs]
             [utils.async :refer [go-try <?]]
             [utils.frequencies :as f]
-            [utils.core :refer [indexed-by percent]]
+            [utils.core :refer [indexed-by percent seek]]
             [crate.core :as crate]
             [dashboard.data :as data]))
 
@@ -261,7 +261,7 @@
 
    [:div.row
     [:vega-lite.col-auto
-     {:title "Sesiones por versión"
+     {:title "Cantidad de sesiones por versión"
       :width 256
       :height 256
       :data {:values (->> sessions
@@ -284,7 +284,7 @@
       :layer [{:mark {:type :bar :point true :tooltip true}}]}]
       
       [:vega-lite.col-auto
-       {:title "Partidas por versión"
+       {:title "Cantidad de partidas por versión"
         :width 256
         :height 256
         :data {:values (->> matches
@@ -427,21 +427,34 @@
          (def games (-> @!state :data :games))
          (def sessions (-> @!state :data :sessions))
          (def matches (-> @!state :data :matches)))
-     
+
        (count sessions)
-     
+
        (first matches)
-       
-     
-       
+
+       (def platforms-by-pc (update-vals (->> sessions
+                                              (filter :valid?)
+                                              (group-by :pc))
+                                         (fn [sessions]
+                                           (:platform (first sessions)))))
+       (def platforms (vals platforms-by-pc))
+       (def freq-map (frequencies platforms))
+
+       (def total (count platforms))
+
+
+
        )
 
-     #_[:div.row
+     [:div.row
       [:vega-lite.my-4.col-auto
        {:title "Jugadores por plataforma"
-        :data {:values (let [platforms (->> sessions
-                                            (filter :valid?)
-                                            (map #(select-keys % [:pc :platform])))
+        :data {:values (let [platforms-by-pc (update-vals (->> sessions
+                                                               (filter :valid?)
+                                                               (group-by :pc))
+                                                          (fn [sessions]
+                                                            (:platform (first sessions))))
+                             platforms (vals platforms-by-pc)
                              freq-map (frequencies platforms)
                              total (count platforms)]
                          (map (fn [[platform count]]
