@@ -414,15 +414,15 @@
         (players (:data @!state)))]]]])
 
 
-(defn update-ui! []
+(defn update-ui! [old-state new-state]
   (vega-finalize!)
-  (let [old-scroll (when-let [charts (get-element-by-id "charts")]
-                     (oget charts :scrollTop))]
-    (doto (get-element-by-id "content")
-      (clear!)
-      (append! (main-container)))
-    (go (oset! (get-element-by-id "charts") 
-               :scrollTop (or old-scroll 0)))))
+  (doto (get-element-by-id "content")
+    (clear!)
+    (append! (main-container)))
+  (when (not= (:visible-charts old-state)
+              (:visible-charts new-state))
+    (when-let [scroll js/document.scrollingElement]
+      (oset! scroll :scrollTop 0))))
 
 (defn update-filters! [{:keys [sessions matches]}]
   (let [filters (:game-filters @!state)]
@@ -440,7 +440,7 @@
                        (if (not= (:game-filters old)
                                  (:game-filters new))
                          (update-filters! data)
-                         (update-ui!))))
+                         (update-ui! old new))))
           (swap! !state assoc
                  :data data
                  :game-filters (:games data))))))
