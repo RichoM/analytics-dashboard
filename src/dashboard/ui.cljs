@@ -124,26 +124,6 @@
                      :point {:size 100}
                      :tooltip true}}]}]
 
-   (comment
-     
-     (->> matches
-          (filter :valid?)
-          (filter (comp #{"Retro Racing: Double Dash"} :game))
-          (filter (comp #{"2024-05-25"} :date))
-          count)
-     
-     (->> sessions
-          (filter :valid?)
-          (filter (comp #{"Retro Racing: Double Dash"} :game))
-          (filter (comp #{"2024-05-25"} :date))
-          count)
-     
-
-     (->> matches 
-          (filter :valid?)
-          (last))
-     )
-
    [:vega-lite.my-4.col-auto
     {:title "Partidas por sesión (promedio)"
      :width 1024
@@ -163,83 +143,110 @@
      :layer [{:mark {:type "line"
                      :point {:size 100}
                      :tooltip true}}]}]
+   [:div.row
+    [:vega-lite.my-4.col-auto
+     {:title "Duración de las sesiones"
+      :width 256
+      :height 512
+      :data {:values (->> sessions
+                          (filter :valid?)
+                          (mapv #(select-keys % [:game :duration_m])))}
+      :encoding {:x {:field :game
+                     :type :nominal
+                     :title "Juego"
+                     :axis {:labelAngle -35}
+                     :sort {:field :game}}
+                 :y {:field :duration_m
+                     :type :quantitative
+                     :title "Duración (minutos)"}
+                 :color {:field :game :title "Juego"}}
+      :layer [{:mark {:type "boxplot"}}]}]
+    
+    [:vega-lite.my-4.col-auto
+     {:title "Duración de las partidas (excluyendo outliers)"
+      :width 512
+      :height 512
+      :data {:values (->> matches
+                          (filter :valid?)
+                          (map (fn [{:keys [game mode local?] :as match}]
+                                 (assoc match
+                                        :mode (case (str/lower-case game)
 
-   [:vega-lite.my-4.col-auto
-    {:title "Duración de las sesiones"
-     :width 256
-     :height 512
-     :data {:values (->> sessions
-                         (filter :valid?)
-                         (mapv #(select-keys % [:game :duration_m])))}
-     :encoding {:x {:field :game
-                    :type :nominal
-                    :title "Juego"
-                    :axis {:labelAngle -35}
-                    :sort {:field :game}}
-                :y {:field :duration_m
-                    :type :quantitative
-                    :title "Duración (minutos)"}
-                :color {:field :game :title "Juego"}}
-     :layer [{:mark {:type "boxplot"}}]}]
+                                                "astrobrawl"
+                                                (if (= mode "DEATHMATCH")
+                                                  (if local?
+                                                    "DEATHMATCH local"
+                                                    "DEATHMATCH online")
+                                                  mode)
 
+                                                "wizards of lezama"
+                                                (if (= mode "PRACTICE")
+                                                  "PAPABLANCA"
+                                                  mode)
 
-   [:vega-lite.my-4.col-auto
-    {:title "Duración de las partidas (excluyendo outliers)"
-     :width 512
-     :height 512
-     :data {:values (->> matches
-                         (filter :valid?)
-                         (map (fn [{:keys [game mode local?] :as match}]
-                                (assoc match
-                                       :mode (case (str/lower-case game)
+                                                "retro racing: double dash"
+                                                (let [mode (first (str/split mode #","))]
+                                                  (if (= mode "RACE")
+                                                    (if local?
+                                                      "RACE local"
+                                                      "RACE online")
+                                                    mode))
 
-                                               "astrobrawl"
-                                               (if (= mode "DEATHMATCH")
-                                                 (if local?
-                                                   "DEATHMATCH local"
-                                                   "DEATHMATCH online")
-                                                 mode)
+                                                mode))))
+                          (group-by #(select-keys % [:game :mode]))
+                          (map (fn [[{:keys [game mode]} matches]]
+                                 (let [{:keys [percentiles sample-count]}
+                                       (f/stats (frequencies (map :duration_m matches))
+                                                :percentiles [9 25 50 75 91])]
+                                   {:game game :mode mode
+                                    :count sample-count
+                                    :lower (percentiles :p9)
+                                    :q1 (percentiles :p25)
+                                    :median (percentiles :p50)
+                                    :q3 (percentiles :p75)
+                                    :upper (percentiles :p91)}))))},
+      :encoding {:x {:field :mode, :type "nominal"
+                     :title "Tipo de partida"
+                     :axis {:labelAngle -35}
+                     :sort {:field :game}}
+                 :y {:title "Duración (minutos)"}},
+      :layer [{:mark {:type "rule"},
+               :encoding {:y {:field :lower, :type "quantitative", :scale {:zero false}},
+                          :y2 {:field :upper}}},
+              {:mark {:type "bar", :size 14 :tooltip {:content "data"}},
+               :encoding {:y {:field :q1, :type "quantitative"},
+                          :y2 {:field :q3},
+                          :color {:field :game, :type "nominal" :title "Juego"}}},
+              {:mark {:type "tick", :color "white", :size 14},
+               :encoding {:y {:field :median, :type "quantitative"}}}]}]]
 
-                                               "wizards of lezama"
-                                               (if (= mode "PRACTICE")
-                                                 "PAPABLANCA"
-                                                 mode)
+   (comment
+     (do
+       (def games (-> @!state :data :games))
+       (def sessions (-> @!state :data :sessions))
+       (def matches (-> @!state :data :matches)))
 
-                                               "retro racing: double dash"
-                                               (let [mode (first (str/split mode #","))]
-                                                 (if (= mode "RACE")
-                                                   (if local?
-                                                     "RACE local"
-                                                     "RACE online")
-                                                   mode))
+     (count sessions))
 
-                                               mode))))
-                         (group-by #(select-keys % [:game :mode]))
-                         (map (fn [[{:keys [game mode]} matches]]
-                                (let [{:keys [percentiles sample-count]}
-                                      (f/stats (frequencies (map :duration_m matches))
-                                               :percentiles [9 25 50 75 91])]
-                                  {:game game :mode mode
-                                   :count sample-count
-                                   :lower (percentiles :p9)
-                                   :q1 (percentiles :p25)
-                                   :median (percentiles :p50)
-                                   :q3 (percentiles :p75)
-                                   :upper (percentiles :p91)}))))},
-     :encoding {:x {:field :mode, :type "nominal"
-                    :title "Tipo de partida"
-                    :axis {:labelAngle -35}
-                    :sort {:field :game}}
-                :y {:title "Duración (minutos)"}},
-     :layer [{:mark {:type "rule"},
-              :encoding {:y {:field :lower, :type "quantitative", :scale {:zero false}},
-                         :y2 {:field :upper}}},
-             {:mark {:type "bar", :size 14 :tooltip {:content "data"}},
-              :encoding {:y {:field :q1, :type "quantitative"},
-                         :y2 {:field :q3},
-                         :color {:field :game, :type "nominal" :title "Juego"}}},
-             {:mark {:type "tick", :color "white", :size 14},
-              :encoding {:y {:field :median, :type "quantitative"}}}]}]])
+   [:div.row
+    [:vega-lite.my-4.col-auto
+     {:title "Plataformas"
+      :data {:values (let [platforms (->> sessions
+                                          (filter :valid?)
+                                          (map :platform))
+                           freq-map (frequencies platforms)
+                           total (count platforms)]
+                       (map (fn [[platform count]]
+                              {:type platform :count count :text (percent (/ count total))})
+                            freq-map))}
+      :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
+                 :order {:field "count", :type "quantitative", :sort "descending"},
+                 :color {:field "type",
+                         :title nil,
+                         :sort {:field "count", :order "descending"}},
+                 :text {:field :text, :type "nominal"}},
+      :layer [{:mark {:type "arc", :innerRadius 50, :point true, :tooltip true}},
+              {:mark {:type "text", :radius 75, :fill "black"}}]}]]])
 
 (defn players [{:keys [games sessions matches]}]
   [:div.row
@@ -322,31 +329,7 @@
                     :title "Cantidad"}
                 :color {:field :type
                         :title nil}}
-     :layer [{:mark {:type :bar :point true :tooltip true}}]}]
-
-   (comment
-     (do
-       (def games (-> @!state :data :games))
-       (def sessions (-> @!state :data :sessions))
-       (def matches (-> @!state :data :matches)))
-
-     (count sessions)
-
-     (->> sessions
-          (filter :valid?)
-          (map :pc)
-          (set)
-          (count))
-     (+ 326 23 7 4 2 4 1 1 2)
-
-
-     (->> sessions
-          (filter :valid?)
-          (group-by :pc)
-          (map (fn [[pc sessions]]
-                 (let [dates (set (map :date sessions))]
-                   (count dates))))
-          (frequencies)))])
+     :layer [{:mark {:type :bar :point true :tooltip true}}]}]])
 
 (defn toggle-btn [text]
   (html [:button.r-button.btn.btn-sm.btn-outline-dark.rounded-pill
