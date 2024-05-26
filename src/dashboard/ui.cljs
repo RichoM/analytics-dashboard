@@ -396,16 +396,16 @@
 (defn main-container []
   [:div#main-container.container-fluid
    [:div.row
-    [:div#side-bar.col-auto.w-auto.my-2
-     [:div.row.my-1]
-     [:div.d-grid (side-bar-btn :sessions-and-matches "Sesiones y partidas")]
-     [:div.row.my-1]
-     [:div.d-grid (side-bar-btn :players "Jugadores")]
-     [:div.row.my-2]
-     [:hr]
-     [:div
-      (map game-checkbox (-> @!state :data :games sort))]]
-    [:div#charts.col.w-auto.overflow-auto.vh-100
+    [:div#side-bar.col-lg-auto
+     [:div.sticky-top.py-2
+      [:div.d-grid (side-bar-btn :sessions-and-matches "Sesiones y partidas")]
+      [:div.row.my-1]
+      [:div.d-grid (side-bar-btn :players "Jugadores")]
+      [:div.row.my-2]
+      [:hr]
+      [:div
+       (map game-checkbox (-> @!state :data :games sort))]]]
+    [:div#charts.col.w-auto ;overflow-auto.vh-100
      [:div.my-1]
      [:div
       (when (visible-chart? :sessions-and-matches)
