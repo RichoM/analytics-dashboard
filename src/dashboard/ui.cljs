@@ -624,7 +624,127 @@
                              :text {:field :percent, :type "nominal"}},
                   :layer [{:mark {:type "arc", :innerRadius 50, :point true,
                                   :tooltip {:content "data"}}},
-                          {:mark {:type "text", :radius 75, :fill "black"}}]}]]]])
+                          {:mark {:type "text", :radius 75, :fill "black"}}]}]]]
+   
+   (comment
+     
+     (do
+       (def games (-> @!state :data :games))
+       (def sessions (-> @!state :data :sessions))
+       (def matches (-> @!state :data :matches)))
+     
+
+     (->> sessions
+          (filter :valid?)
+          (filter (comp #{"US"} :country_code))
+          (map :pc)
+          (set)
+          (count))
+     
+     )
+
+   (let [data (let [country-map (-> (->> sessions
+                                         (filter :valid?)
+                                         (group-by :country))
+                                    (update-vals (fn [sessions]
+                                                   (count (set (map :pc sessions))))))]
+                (map (fn [country]
+                       (let [count (get country-map country 0)]
+                         {:id (:id country)
+                          :name (:name country)
+                          :tooltip (str (:name country) ": " count)
+                          :count count}))
+                     countries/all-countries))
+         domain [0 (apply max (map :count data))]]
+     [:div.my-4.col-auto
+      [:h6.fw-bold.text-center "Jugadores por país"]
+      [:vega-lite {:width 1024
+                   :height 512
+                   :autosize "none"
+                   :signals [{:name "tx", :update "width / 2"},
+                             {:name "ty", :update "height / 2"},
+                             {:name "scale",
+                              :value 150,
+                              :on [{:events {:type "wheel", :consume true},
+                                    :update "clamp(scale * pow(1.0005, -event.deltaY * pow(16, event.deltaMode)), 150, 3000)"}]},
+                             {:name "angles",
+                              :value [0, 0],
+                              :on [{:events "pointerdown",
+                                    :update "[rotateX, centerY]"}]},
+                             {:name "cloned",
+                              :value nil,
+                              :on [{:events "pointerdown",
+                                    :update "copy('projection')"}]},
+                             {:name "start",
+                              :value nil,
+                              :on [{:events "pointerdown",
+                                    :update "invert(cloned, xy())"}]},
+                             {:name "drag", :value nil,
+                              :on [{:events "[pointerdown, window:pointerup] > window:pointermove",
+                                    :update "invert(cloned, xy())"}]},
+                             {:name "delta", :value nil,
+                              :on [{:events {:signal "drag"},
+                                    :update "[drag[0] - start[0], start[1] - drag[1]]"}]},
+                             {:name "rotateX", :value 0,
+                              :on [{:events {:signal "delta"},
+                                    :update "angles[0] + delta[0]"}]},
+                             {:name "centerY", :value 0,
+                              :on [{:events {:signal "delta"},
+                                    :update "clamp(angles[1] + delta[1], -60, 60)"}]}]
+                   :projections [{:name "projection",
+                                  :type "mercator",
+                                  :scale {:signal "scale"},
+                                  :rotate [{:signal "rotateX"}, 0, 0],
+                                  :center [0, {:signal "centerY"}],
+                                  :translate [{:signal "tx"}, {:signal "ty"}]}]
+                   :data [{:name "data"
+                           :values data}
+                          {:name "world",
+                           :url "https://vega.github.io/editor/data/world-110m.json",
+                           :format {:type "topojson",
+                                    :feature "countries"}
+                           :transform [{:type :lookup :from "data" :key :id
+                                        :fields [:id] :values [:count :tooltip]}]},
+                          {:name "graticule",
+                           :transform [{:type "graticule"}]}]
+                   :scales [{:name "color"
+                             :type "quantize"
+                             :domain domain
+                             :range {:scheme "purples" :count 7}}]
+                   :legends [{:fill "color"
+                              :title nil
+                              :orient "top-left"}]
+                   :marks [{:type "shape",
+                            :from {:data "graticule"},
+                            :encode {:update {:strokeWidth {:value 1},
+                                              :strokeDash {:value [2, 5]},
+                                              :stroke {:value "#abc"},
+                                              :fill {:value nil}}},
+                            :transform [{:type "geoshape", :projection "projection"}]},
+                           {:type "shape",
+                            :from {:data "world"},
+                            :encode {:update {:strokeWidth {:value 0.5},
+                                              :stroke {:value "#fff"},
+                                              :fill {:scale "color" :field :count},
+                                              :zindex {:value 0}
+                                              :tooltip {:field :tooltip}}},
+                            :transform [{:type "geoshape", :projection "projection"}]}]}]
+
+      [:vega-lite {:height 128
+                   :data {:values (->> data
+                                       (sort-by :count)
+                                       (reverse)
+                                       (take 45))}
+                   :encoding {:x {:field :name
+                                  :type :ordinal
+                                  :sort {:field "count", :order "descending"}
+                                  :axis {:labelAngle -35}
+                                  :title nil}
+                              :y {:field :count
+                                  :type :quantitative
+                                  :title "Cantidad"}
+                              :color {:value "#5c3696"}}
+                   :layer [{:mark {:type :bar :point true :tooltip true}}]}]])])
 
 (defn toggle-btn [text]
   (html [:button.r-button.btn.btn-sm.btn-outline-dark.rounded-pill
