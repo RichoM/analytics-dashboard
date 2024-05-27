@@ -341,44 +341,78 @@
                      countries/all-countries))
          domain [0 (apply max (map :count data))]]
      [:div.my-4
-      [:vega-lite
-       {:title "Sesiones por país",
-        :projections [{:name "projection",
-                       :type "naturalEarth1",
-                       :scale 190,
-                       :rotate [0, 0, 0],
-                       :center [0, 0]}],
-        :data [{:name "data"
-                :values data}
-               {:name "world",
-                :url "https://vega.github.io/editor/data/world-110m.json",
-                :format {:type "topojson",
-                         :feature "countries"}
-                :transform [{:type :lookup :from "data" :key :id 
-                             :fields [:id] :values [:count :tooltip]}]},
-               {:name "graticule",
-                :transform [{:type "graticule"}]}]
-        :scales [{:name "color"
-                  :type "quantize"
-                  :domain domain
-                  :range {:scheme "blues" :count 7}}]
-        :legends [{:fill "color"
-                   :title "Sesiones"}]
-        :marks [{:type "shape",
-                 :from {:data "graticule"},
-                 :encode {:update {:strokeWidth {:value 1},
-                                   :strokeDash {:value [2, 5]},
-                                   :stroke {:value "#abc"},
-                                   :fill {:value nil}}},
-                 :transform [{:type "geoshape", :projection "projection"}]},
-                {:type "shape",
-                 :from {:data "world"},
-                 :encode {:update {:strokeWidth {:value 0.5},
-                                   :stroke {:value "#fff"},
-                                   :fill {:scale "color" :field :count},
-                                   :zindex {:value 0}
-                                   :tooltip {:field :tooltip}}},
-                 :transform [{:type "geoshape", :projection "projection"}]}]}]
+      [:h6.fw-bold "Sesiones por país"]
+      [:vega-lite {:width 1024
+                   :height 512
+                   :autosize "none"
+                   :signals [{:name "tx", :update "width / 2"},
+                             {:name "ty", :update "height / 2"},
+                             {:name "scale",
+                              :value 150,
+                              :on [{:events {:type "wheel", :consume true},
+                                    :update "clamp(scale * pow(1.0005, -event.deltaY * pow(16, event.deltaMode)), 150, 3000)"}]},
+                             {:name "angles",
+                              :value [0, 0],
+                              :on [{:events "pointerdown",
+                                    :update "[rotateX, centerY]"}]},
+                             {:name "cloned",
+                              :value nil,
+                              :on [{:events "pointerdown",
+                                    :update "copy('projection')"}]},
+                             {:name "start",
+                              :value nil,
+                              :on [{:events "pointerdown",
+                                    :update "invert(cloned, xy())"}]},
+                             {:name "drag", :value nil,
+                              :on [{:events "[pointerdown, window:pointerup] > window:pointermove",
+                                    :update "invert(cloned, xy())"}]},
+                             {:name "delta", :value nil,
+                              :on [{:events {:signal "drag"},
+                                    :update "[drag[0] - start[0], start[1] - drag[1]]"}]},
+                             {:name "rotateX", :value 0,
+                              :on [{:events {:signal "delta"},
+                                    :update "angles[0] + delta[0]"}]},
+                             {:name "centerY", :value 0,
+                              :on [{:events {:signal "delta"},
+                                    :update "clamp(angles[1] + delta[1], -60, 60)"}]}]
+                   :projections [{:name "projection",
+                                  :type "mercator",
+                                  :scale {:signal "scale"},
+                                  :rotate [{:signal "rotateX"}, 0, 0],
+                                  :center [0, {:signal "centerY"}],
+                                  :translate [{:signal "tx"}, {:signal "ty"}]}]
+                   :data [{:name "data"
+                           :values data}
+                          {:name "world",
+                           :url "https://vega.github.io/editor/data/world-110m.json",
+                           :format {:type "topojson",
+                                    :feature "countries"}
+                           :transform [{:type :lookup :from "data" :key :id
+                                        :fields [:id] :values [:count :tooltip]}]},
+                          {:name "graticule",
+                           :transform [{:type "graticule"}]}]
+                   :scales [{:name "color"
+                             :type "quantize"
+                             :domain domain
+                             :range {:scheme "blues" :count 7}}]
+                   :legends [{:fill "color"
+                              :title nil
+                              :orient "top-left"}]
+                   :marks [{:type "shape",
+                            :from {:data "graticule"},
+                            :encode {:update {:strokeWidth {:value 1},
+                                              :strokeDash {:value [2, 5]},
+                                              :stroke {:value "#abc"},
+                                              :fill {:value nil}}},
+                            :transform [{:type "geoshape", :projection "projection"}]},
+                           {:type "shape",
+                            :from {:data "world"},
+                            :encode {:update {:strokeWidth {:value 0.5},
+                                              :stroke {:value "#fff"},
+                                              :fill {:scale "color" :field :count},
+                                              :zindex {:value 0}
+                                              :tooltip {:field :tooltip}}},
+                            :transform [{:type "geoshape", :projection "projection"}]}]}]
 
       [:vega-lite.col-auto
        {;:title "Sesiones por país (top 45)"
@@ -406,7 +440,6 @@
      (-> (first matches) meta :session :country))
 
    (let [data (let [valid-matches (filter :valid? matches)
-                    total-count (count valid-matches)
                     country-map (-> (group-by (comp :country :session meta)
                                               valid-matches)
                                     (update-vals count))]
@@ -419,19 +452,53 @@
                      countries/all-countries))
          domain [0 (apply max (map :count data))]]
      [:div.my-4
-      [:vega-lite {:title "Partidas por país",
+      [:h6.fw-bold "Partidas por país"]
+      [:vega-lite {:width 1024
+                   :height 512
+                   :autosize "none"
+                   :signals [{:name "tx", :update "width / 2"},
+                             {:name "ty", :update "height / 2"},
+                             {:name "scale",
+                              :value 150,
+                              :on [{:events {:type "wheel", :consume true},
+                                    :update "clamp(scale * pow(1.0005, -event.deltaY * pow(16, event.deltaMode)), 150, 3000)"}]},
+                             {:name "angles",
+                              :value [0, 0],
+                              :on [{:events "pointerdown",
+                                    :update "[rotateX, centerY]"}]},
+                             {:name "cloned",
+                              :value nil,
+                              :on [{:events "pointerdown",
+                                    :update "copy('projection')"}]},
+                             {:name "start",
+                              :value nil,
+                              :on [{:events "pointerdown",
+                                    :update "invert(cloned, xy())"}]},
+                             {:name "drag", :value nil,
+                              :on [{:events "[pointerdown, window:pointerup] > window:pointermove",
+                                    :update "invert(cloned, xy())"}]},
+                             {:name "delta", :value nil,
+                              :on [{:events {:signal "drag"},
+                                    :update "[drag[0] - start[0], start[1] - drag[1]]"}]},
+                             {:name "rotateX", :value 0,
+                              :on [{:events {:signal "delta"},
+                                    :update "angles[0] + delta[0]"}]},
+                             {:name "centerY", :value 0,
+                              :on [{:events {:signal "delta"},
+                                    :update "clamp(angles[1] + delta[1], -60, 60)"}]}]
                    :projections [{:name "projection",
-                                  :type "naturalEarth1",
-                                  :scale 190,
-                                  :rotate [0, 0, 0]
-                                  :center [0, 0]}]
+                                  :type "mercator",
+                                  :scale {:signal "scale"},
+                                  :rotate [{:signal "rotateX"}, 0, 0],
+                                  :center [0, {:signal "centerY"}],
+                                  :translate [{:signal "tx"}, {:signal "ty"}]}]
                    :data [{:name "data"
                            :values data}
                           {:name "world",
                            :url "https://vega.github.io/editor/data/world-110m.json",
                            :format {:type "topojson",
                                     :feature "countries"}
-                           :transform [{:type :lookup :from "data" :key :id 
+                           :transform [{:type :lookup :from "data" :key :id
                                         :fields [:id] :values [:count :tooltip]}]},
                           {:name "graticule",
                            :transform [{:type "graticule"}]}]
@@ -440,7 +507,8 @@
                              :domain domain
                              :range {:scheme "purples" :count 7}}]
                    :legends [{:fill "color"
-                              :title "Sesiones"}]
+                              :title nil
+                              :orient "top-left"}]
                    :marks [{:type "shape",
                             :from {:data "graticule"},
                             :encode {:update {:strokeWidth {:value 1},
