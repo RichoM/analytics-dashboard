@@ -6,7 +6,8 @@
             [utils.gsheets :as gs]
             [utils.bootstrap :as bs]
             [utils.async :refer [go-try <?]]
-            [utils.core :refer [pad-left]]))
+            [utils.core :refer [pad-left]]
+            [dashboard.countries :as countries]))
 
 (defn rows->maps [rows]
   (let [columns (mapv keyword (first rows))]
@@ -35,7 +36,7 @@
                    (gs/Spreadsheet. "1Yj79TCA0I-73SpLtBQztqNNJ8e-ANPYX5TpPLGZmqqI")])
 
 (defn enrich-session
-  [{:keys [date time duration_ms match_count version] :as session}]
+  [{:keys [date time duration_ms match_count version country_code] :as session}]
   (let [duration-ms (parse-long duration_ms)]
     (map->Session
      (assoc session
@@ -44,6 +45,7 @@
             :duration_s (/ duration-ms 1000)
             :duration_m (/ duration-ms 1000 60)
             :match_count (parse-long match_count)
+            :country (countries/with-code country_code)
             :valid? (and (> duration-ms 0)
                          (not (str/blank? version))
                          (not (str/includes? version "DEMO")))))))

@@ -9,7 +9,8 @@
             [utils.frequencies :as f]
             [utils.core :refer [indexed-by percent seek]]
             [crate.core :as crate]
-            [dashboard.data :as data]))
+            [dashboard.data :as data]
+            [dashboard.countries :as countries]))
 
 (defonce !state (atom {:charts {:sessions-and-matches {}
                                 :match-duration {}}
@@ -229,7 +230,7 @@
                            freq-map (frequencies platforms)
                            total (count platforms)]
                        (map (fn [[platform count]]
-                              {:type platform :count count 
+                              {:type platform :count count
                                :percent (percent (/ count total))})
                             freq-map))}
       :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
@@ -238,7 +239,7 @@
                          :title nil,
                          :sort {:field "count", :order "descending"}},
                  :text {:field :percent, :type "nominal"}},
-      :layer [{:mark {:type "arc", :innerRadius 50, :point true, 
+      :layer [{:mark {:type "arc", :innerRadius 50, :point true,
                       :tooltip {:content "data"}}},
               {:mark {:type "text", :radius 75, :fill "black"}}]}]
 
@@ -250,7 +251,7 @@
                            freq-map (frequencies platforms)
                            total (count platforms)]
                        (map (fn [[platform count]]
-                              {:type platform :count count 
+                              {:type platform :count count
                                :percent (percent (/ count total))})
                             freq-map))}
       :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
@@ -259,7 +260,7 @@
                          :title nil,
                          :sort {:field "count", :order "descending"}},
                  :text {:field :percent, :type "nominal"}},
-      :layer [{:mark {:type "arc", :innerRadius 50, :point true, 
+      :layer [{:mark {:type "arc", :innerRadius 50, :point true,
                       :tooltip {:content "data"}}},
               {:mark {:type "text", :radius 75, :fill "black"}}]}]]
 
@@ -286,62 +287,108 @@
                  :color {:field :game
                          :title nil}}
       :layer [{:mark {:type :bar :point true :tooltip true}}]}]
-      
-      [:vega-lite.col-auto
-       {:title "Cantidad de partidas por versión"
-        :width 256
-        :height 256
-        :data {:values (->> matches
-                            (filter :valid?)
-                            (map (fn [match]
-                                   (assoc match :version (-> match meta :session :version))))
-                            (map #(select-keys % [:game :version]))
-                            (group-by :game)
-                            (mapcat (fn [[game matches]]
-                                      (map (fn [[version count]]
-                                             {:game game :version (str game " v" version) :count count})
-                                           (update-vals (group-by :version matches) count)))))}
-        :encoding {:x {:field :version
-                       :type :ordinal
-                       :axis {:labelAngle -35}
-                       :title "Fecha"}
-                   :y {:field :count
-                       :type :quantitative
-                       :title "Cantidad"}
-                   :color {:field :game
-                           :title nil}}
-        :layer [{:mark {:type :bar :point true :tooltip true}}]}]]
 
+    [:vega-lite.col-auto
+     {:title "Cantidad de partidas por versión"
+      :width 256
+      :height 256
+      :data {:values (->> matches
+                          (filter :valid?)
+                          (map (fn [match]
+                                 (assoc match :version (-> match meta :session :version))))
+                          (map #(select-keys % [:game :version]))
+                          (group-by :game)
+                          (mapcat (fn [[game matches]]
+                                    (map (fn [[version count]]
+                                           {:game game :version (str game " v" version) :count count})
+                                         (update-vals (group-by :version matches) count)))))}
+      :encoding {:x {:field :version
+                     :type :ordinal
+                     :axis {:labelAngle -35}
+                     :title "Fecha"}
+                 :y {:field :count
+                     :type :quantitative
+                     :title "Cantidad"}
+                 :color {:field :game
+                         :title nil}}
+      :layer [{:mark {:type :bar :point true :tooltip true}}]}]]
+
+   (comment
+     (do
+       (def games (-> @!state :data :games))
+       (def sessions (-> @!state :data :sessions))
+       (def matches (-> @!state :data :matches)))
+
+     (count sessions)
+
+     (first sessions)
+
+     (get country-map (countries/with-code "PE"))
+
+     (let [valid-sessions (filter :valid? sessions)
+           total-count (count valid-sessions)
+           country-map (-> (group-by :country valid-sessions)
+                           (update-vals count))]
+       (map (fn [country]
+              {:id (:id country)
+               :name (:name country)
+               :v (get country-map country)
+               :count (/ (get country-map country 0)
+                         total-count)})
+            countries/all-countries))
+
+     )
 
    [:vega-lite
-    {:title "Sesiones por país",
-     :projections [{:name "projection",
-                    :type "naturalEarth1",
-                    :scale 190,
-                    :rotate [0, 0, 0],
-                    :center [0, 0]}],
+    (let [data (let [valid-sessions (filter :valid? sessions)
+                     total-count (count valid-sessions)
+                     country-map (-> (group-by :country valid-sessions)
+                                     (update-vals count))]
+                 (map (fn [country]
+                        (let [count (get country-map country 0)]
+                          {:id (:id country)
+                           :count count}))
+                      countries/all-countries))
+          domain [0 (apply max (map :count data))]]
+      {:title "Sesiones por país",
+       :projections [{:name "projection",
+                      :type "naturalEarth1",
+                      :scale 190,
+                      :rotate [0, 0, 0],
+                      :center [0, 0]}],
 
-     :data [{:name "world",
-             :url "https://vega.github.io/editor/data/world-110m.json",
-             :format {:type "topojson",
-                      :feature "countries"}},
-            {:name "graticule",
-             :transform [{:type "graticule"}]}],
+       :data [{:name "data"
+               :values data}
+              {:name "world",
+               :url "https://vega.github.io/editor/data/world-110m.json",
+               :format {:type "topojson",
+                        :feature "countries"}
+               :transform [{:type :lookup :from "data" :key :id :fields [:id] :values [:count]}]},
+              {:name "graticule",
+               :transform [{:type "graticule"}]}]
+       :scales [{:name "color"
+                 :type "quantize"
+                 :domain domain                 
+                 :range {:scheme "blues" :count 7}
+                 }]
 
-     :marks [{:type "shape",
-              :from {:data "graticule"},
-              :encode {:update {:strokeWidth {:value 1},
-                                :strokeDash {:value [2, 5]},
-                                :stroke {:value "#abc"},
-                                :fill {:value nil}}},
-              :transform [{:type "geoshape", :projection "projection"}]},
-             {:type "shape",
-              :from {:data "world"},
-              :encode {:update {:strokeWidth {:value 0.5},
-                                :stroke {:value "#fff"},
-                                :fill {:value "#aaa"},
-                                :zindex {:value 0}}},
-              :transform [{:type "geoshape", :projection "projection"}]}]}]])
+       :legends [{:fill "color"
+                  :title "Sesiones"}]
+
+       :marks [{:type "shape",
+                :from {:data "graticule"},
+                :encode {:update {:strokeWidth {:value 1},
+                                  :strokeDash {:value [2, 5]},
+                                  :stroke {:value "#abc"},
+                                  :fill {:value nil}}},
+                :transform [{:type "geoshape", :projection "projection"}]},
+               {:type "shape",
+                :from {:data "world"},
+                :encode {:update {:strokeWidth {:value 0.5},
+                                  :stroke {:value "#fff"},
+                                  :fill {:scale "color" :field :count},
+                                  :zindex {:value 0}}},
+                :transform [{:type "geoshape", :projection "projection"}]}]})]])
 
 (defn players [{:keys [games sessions matches]}]
   [:div.row
@@ -431,30 +478,6 @@
                         :title nil}}
      :layer [{:mark {:type :bar :point true 
                      :tooltip {:content "data"}}}]}]
-     
-     (comment
-       (do
-         (def games (-> @!state :data :games))
-         (def sessions (-> @!state :data :sessions))
-         (def matches (-> @!state :data :matches)))
-
-       (count sessions)
-
-       (first matches)
-
-       (def platforms-by-pc (update-vals (->> sessions
-                                              (filter :valid?)
-                                              (group-by :pc))
-                                         (fn [sessions]
-                                           (:platform (first sessions)))))
-       (def platforms (vals platforms-by-pc))
-       (def freq-map (frequencies platforms))
-
-       (def total (count platforms))
-
-
-
-       )
 
      [:div.row
       [:vega-lite.my-4.col-auto
@@ -547,14 +570,16 @@
 
 
 (defn update-ui! [old-state new-state]
-  (vega-finalize!)
-  (doto (get-element-by-id "content")
-    (clear!)
-    (append! (main-container)))
-  (when (not= (:visible-charts old-state)
-              (:visible-charts new-state))
+  (let [scroll (or (oget js/document :?scrollingElement.?scrollTop) 0)]
+    (vega-finalize!)
+    (doto (get-element-by-id "content")
+      (clear!)
+      (append! (main-container)))
     (when-let [scroll js/document.scrollingElement]
-      (oset! scroll :scrollTop 0))))
+      (if (not= (:visible-charts old-state)
+                (:visible-charts new-state))
+        (go (oset! scroll :scrollTop 0))
+        (go (oset! scroll :scrollTop scroll))))))
 
 (defn update-filters! [{:keys [sessions matches]}]
   (let [filters (:game-filters @!state)]
