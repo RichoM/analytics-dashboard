@@ -813,16 +813,14 @@
 
 
 (defn update-ui! [old-state new-state]
-  (let [scroll (or (oget js/document :?scrollingElement.?scrollTop) 0)]
-    (vega-finalize!)
-    (doto (get-element-by-id "content")
-      (clear!)
-      (append! (main-container)))
-    (when-let [scroll js/document.scrollingElement]
-      (if (not= (:visible-charts old-state)
+  (vega-finalize!)
+  (doto (get-element-by-id "content")
+    (clear!)
+    (append! (main-container)))
+  (when-let [scroll js/document.scrollingElement]
+    (when (not= (:visible-charts old-state)
                 (:visible-charts new-state))
-        (go (oset! scroll :scrollTop 0))
-        (go (oset! scroll :scrollTop scroll))))))
+      (go (oset! scroll :scrollTop 0)))))
 
 (defn update-filters! [{:keys [sessions matches]}]
   (let [filters (:game-filters @!state)]
