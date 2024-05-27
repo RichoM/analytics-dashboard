@@ -314,81 +314,166 @@
       :layer [{:mark {:type :bar :point true :tooltip true}}]}]]
 
    (comment
-     (do
-       (def games (-> @!state :data :games))
-       (def sessions (-> @!state :data :sessions))
-       (def matches (-> @!state :data :matches)))
 
-     (count sessions)
 
-     (first sessions)
-
-     (get country-map (countries/with-code "PE"))
 
      (let [valid-sessions (filter :valid? sessions)
            total-count (count valid-sessions)
            country-map (-> (group-by :country valid-sessions)
                            (update-vals count))]
        (map (fn [country]
-              {:id (:id country)
-               :name (:name country)
-               :v (get country-map country)
-               :count (/ (get country-map country 0)
-                         total-count)})
-            countries/all-countries))
+              (let [count (get country-map country 0)]
+                {:id (:id country)
+                 :name (:name country)
+                 :count count}))
+            countries/all-countries)))
 
-     )
+   (let [data (let [valid-sessions (filter :valid? sessions)
+                    total-count (count valid-sessions)
+                    country-map (-> (group-by :country valid-sessions)
+                                    (update-vals count))]
+                (map (fn [country]
+                       (let [count (get country-map country 0)]
+                         {:id (:id country)
+                          :name (:name country)
+                          :tooltip (str (:name country) ": " count)
+                          :count count}))
+                     countries/all-countries))
+         domain [0 (apply max (map :count data))]]
+     [:div.my-4
+      [:vega-lite
+       {:title "Sesiones por país",
+        :projections [{:name "projection",
+                       :type "naturalEarth1",
+                       :scale 190,
+                       :rotate [0, 0, 0],
+                       :center [0, 0]}],
+        :data [{:name "data"
+                :values data}
+               {:name "world",
+                :url "https://vega.github.io/editor/data/world-110m.json",
+                :format {:type "topojson",
+                         :feature "countries"}
+                :transform [{:type :lookup :from "data" :key :id 
+                             :fields [:id] :values [:count :tooltip]}]},
+               {:name "graticule",
+                :transform [{:type "graticule"}]}]
+        :scales [{:name "color"
+                  :type "quantize"
+                  :domain domain
+                  :range {:scheme "blues" :count 7}}]
+        :legends [{:fill "color"
+                   :title "Sesiones"}]
+        :marks [{:type "shape",
+                 :from {:data "graticule"},
+                 :encode {:update {:strokeWidth {:value 1},
+                                   :strokeDash {:value [2, 5]},
+                                   :stroke {:value "#abc"},
+                                   :fill {:value nil}}},
+                 :transform [{:type "geoshape", :projection "projection"}]},
+                {:type "shape",
+                 :from {:data "world"},
+                 :encode {:update {:strokeWidth {:value 0.5},
+                                   :stroke {:value "#fff"},
+                                   :fill {:scale "color" :field :count},
+                                   :zindex {:value 0}
+                                   :tooltip {:field :tooltip}}},
+                 :transform [{:type "geoshape", :projection "projection"}]}]}]
 
-   [:vega-lite
-    (let [data (let [valid-sessions (filter :valid? sessions)
-                     total-count (count valid-sessions)
-                     country-map (-> (group-by :country valid-sessions)
-                                     (update-vals count))]
-                 (map (fn [country]
-                        (let [count (get country-map country 0)]
-                          {:id (:id country)
-                           :count count}))
-                      countries/all-countries))
-          domain [0 (apply max (map :count data))]]
-      {:title "Sesiones por país",
-       :projections [{:name "projection",
-                      :type "naturalEarth1",
-                      :scale 190,
-                      :rotate [0, 0, 0],
-                      :center [0, 0]}],
+      [:vega-lite.col-auto
+       {;:title "Sesiones por país (top 45)"
+        :height 128
+        :data {:values (->> data
+                            (sort-by :count)
+                            (reverse)
+                            (take 45))}
+        :encoding {:x {:field :name
+                       :type :ordinal
+                       :sort {:field "count", :order "descending"}
+                       :axis {:labelAngle -35}
+                       :title nil}
+                   :y {:field :count
+                       :type :quantitative
+                       :title "Cantidad"}}
+        :layer [{:mark {:type :bar :point true :tooltip true}}]}]])
 
-       :data [{:name "data"
-               :values data}
-              {:name "world",
-               :url "https://vega.github.io/editor/data/world-110m.json",
-               :format {:type "topojson",
-                        :feature "countries"}
-               :transform [{:type :lookup :from "data" :key :id :fields [:id] :values [:count]}]},
-              {:name "graticule",
-               :transform [{:type "graticule"}]}]
-       :scales [{:name "color"
-                 :type "quantize"
-                 :domain domain                 
-                 :range {:scheme "blues" :count 7}
-                 }]
+   (comment
+     (do
+       (def games (-> @!state :data :games))
+       (def sessions (-> @!state :data :sessions))
+       (def matches (-> @!state :data :matches)))
 
-       :legends [{:fill "color"
-                  :title "Sesiones"}]
+     (-> (first matches) meta :session :country))
 
-       :marks [{:type "shape",
-                :from {:data "graticule"},
-                :encode {:update {:strokeWidth {:value 1},
-                                  :strokeDash {:value [2, 5]},
-                                  :stroke {:value "#abc"},
-                                  :fill {:value nil}}},
-                :transform [{:type "geoshape", :projection "projection"}]},
-               {:type "shape",
-                :from {:data "world"},
-                :encode {:update {:strokeWidth {:value 0.5},
-                                  :stroke {:value "#fff"},
-                                  :fill {:scale "color" :field :count},
-                                  :zindex {:value 0}}},
-                :transform [{:type "geoshape", :projection "projection"}]}]})]])
+   (let [data (let [valid-matches (filter :valid? matches)
+                    total-count (count valid-matches)
+                    country-map (-> (group-by (comp :country :session meta)
+                                              valid-matches)
+                                    (update-vals count))]
+                (map (fn [country]
+                       (let [count (get country-map country 0)]
+                         {:id (:id country)
+                          :name (:name country)
+                          :tooltip (str (:name country) ": " count)
+                          :count count}))
+                     countries/all-countries))
+         domain [0 (apply max (map :count data))]]
+     [:div.my-4
+      [:vega-lite {:title "Partidas por país",
+                   :projections [{:name "projection",
+                                  :type "naturalEarth1",
+                                  :scale 190,
+                                  :rotate [0, 0, 0]
+                                  :center [0, 0]}]
+                   :data [{:name "data"
+                           :values data}
+                          {:name "world",
+                           :url "https://vega.github.io/editor/data/world-110m.json",
+                           :format {:type "topojson",
+                                    :feature "countries"}
+                           :transform [{:type :lookup :from "data" :key :id 
+                                        :fields [:id] :values [:count :tooltip]}]},
+                          {:name "graticule",
+                           :transform [{:type "graticule"}]}]
+                   :scales [{:name "color"
+                             :type "quantize"
+                             :domain domain
+                             :range {:scheme "purples" :count 7}}]
+                   :legends [{:fill "color"
+                              :title "Sesiones"}]
+                   :marks [{:type "shape",
+                            :from {:data "graticule"},
+                            :encode {:update {:strokeWidth {:value 1},
+                                              :strokeDash {:value [2, 5]},
+                                              :stroke {:value "#abc"},
+                                              :fill {:value nil}}},
+                            :transform [{:type "geoshape", :projection "projection"}]},
+                           {:type "shape",
+                            :from {:data "world"},
+                            :encode {:update {:strokeWidth {:value 0.5},
+                                              :stroke {:value "#fff"},
+                                              :fill {:scale "color" :field :count},
+                                              :zindex {:value 0}
+                                              :tooltip {:field :tooltip}}},
+                            :transform [{:type "geoshape", :projection "projection"}]}]}]
+
+      [:vega-lite.col-auto
+       {;:title "Partidas por país (top 45)"
+        :height 128
+        :data {:values (->> data
+                            (sort-by :count)
+                            (reverse)
+                            (take 45))}
+        :encoding {:x {:field :name
+                       :type :ordinal
+                       :sort {:field "count", :order "descending"}
+                       :axis {:labelAngle -35}
+                       :title nil}
+                   :y {:field :count
+                       :type :quantitative
+                       :title "Cantidad"}
+                   :color {:value "#5c3696"}}
+        :layer [{:mark {:type :bar :point true :tooltip true}}]}]])])
 
 (defn players [{:keys [games sessions matches]}]
   [:div.row
