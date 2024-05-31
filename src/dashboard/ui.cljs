@@ -109,8 +109,7 @@
     [:h6.fw-bold.text-center "Sesiones y partidas por día"]
     [:vega-lite {:width 1024
                           :height 512
-                          :data {:values (data/sessions-by-day (filter :valid? sessions)
-                                                               (filter :valid? matches))}
+                          :data {:values (data/sessions-by-day sessions matches)}
                           :encoding {:x {:field :date
                                          :type :ordinal
                                          :title "Fecha"
@@ -129,8 +128,7 @@
     [:h6.fw-bold.text-center "Partidas por sesión (promedio diario)"]
     [:vega-lite {:width 1024
                           :height 512
-                          :data {:values (data/matches-per-session (filter :valid? sessions)
-                                                                   (filter :valid? matches))}
+                          :data {:values (data/matches-per-session sessions matches)}
                           :encoding {:x {:field :date
                                          :type :ordinal
                                          :title "Fecha"
@@ -149,9 +147,7 @@
      [:h6.fw-bold.text-center "Duración de las sesiones"]
      [:vega-lite {:width 256
                   :height 512
-                  :data {:values (->> sessions
-                                      (filter :valid?)
-                                      (mapv #(select-keys % [:game :duration_m])))}
+                  :data {:values (mapv #(select-keys % [:game :duration_m]) sessions)}
                   :encoding {:x {:field :game
                                  :type :nominal
                                  :title nil
@@ -168,7 +164,6 @@
      [:vega-lite.my-4.col-auto {:width 512
                                 :height 512
                                 :data {:values (->> matches
-                                                    (filter :valid?)
                                                     (map (fn [{:keys [game mode local?] :as match}]
                                                            (assoc match
                                                                   :mode (case (str/lower-case game)
@@ -224,9 +219,7 @@
    [:div.row.my-4
     [:div.col-4
      [:h6.fw-bold.text-center "Sesiones por plataforma"]
-     [:vega-lite {:data {:values (let [platforms (->> sessions
-                                                      (filter :valid?)
-                                                      (map :platform))
+     [:vega-lite {:data {:values (let [platforms (map :platform sessions)
                                        freq-map (frequencies platforms)
                                        total (count platforms)]
                                    (map (fn [[platform count]]
@@ -245,15 +238,13 @@
 
     [:div.col-4
      [:h6.fw-bold.text-center "Partidas por plataforma"]
-     [:vega-lite {:data {:values (let [platforms (->> matches
-                                                                    (filter :valid?)
-                                                                    (map (comp :platform :session meta)))
-                                                     freq-map (frequencies platforms)
-                                                     total (count platforms)]
-                                                 (map (fn [[platform count]]
-                                                        {:type platform :count count
-                                                         :percent (percent (/ count total))})
-                                                      freq-map))}
+     [:vega-lite {:data {:values (let [platforms (map (comp :platform :session meta) matches)
+                                       freq-map (frequencies platforms)
+                                       total (count platforms)]
+                                   (map (fn [[platform count]]
+                                          {:type platform :count count
+                                           :percent (percent (/ count total))})
+                                        freq-map))}
                                 :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
                                            :order {:field "count", :type "quantitative", :sort "descending"},
                                            :color {:field "type",
@@ -270,7 +261,6 @@
      [:vega-lite {:width 256
                   :height 256
                   :data {:values (->> sessions
-                                      (filter :valid?)
                                       (map #(select-keys % [:game :version]))
                                       (group-by :game)
                                       (mapcat (fn [[game sessions]]
@@ -293,7 +283,6 @@
      [:vega-lite {:width 256
                   :height 256
                   :data {:values (->> matches
-                                      (filter :valid?)
                                       (map (fn [match]
                                              (assoc match :version (-> match meta :session :version))))
                                       (map #(select-keys % [:game :version]))
@@ -313,9 +302,7 @@
                                      :title nil}}
                   :layer [{:mark {:type :bar :point true :tooltip true}}]}]]]
 
-   (let [data (let [valid-sessions (filter :valid? sessions)
-                    total-count (count valid-sessions)
-                    country-map (-> (group-by :country valid-sessions)
+   (let [data (let [country-map (-> (group-by :country sessions)
                                     (update-vals count))]
                 (map (fn [country]
                        (let [count (get country-map country 0)]
@@ -413,9 +400,7 @@
                                   :title "Cantidad"}}
                    :layer [{:mark {:type :bar :point true :tooltip true}}]}]])
 
-   (let [data (let [valid-matches (filter :valid? matches)
-                    country-map (-> (group-by (comp :country :session meta)
-                                              valid-matches)
+   (let [data (let [country-map (-> (group-by (comp :country :session meta) matches)
                                     (update-vals count))]
                 (map (fn [country]
                        (let [count (get country-map country 0)]
@@ -523,7 +508,6 @@
     [:vega-lite {:width 1024
                  :height 512
                  :data {:values (->> sessions
-                                     (filter :valid?)
                                      (data/player-count-by-day)
                                      (mapcat (fn [{:keys [date new returning]}]
                                                [{:date date :type :new :count new}
@@ -542,9 +526,7 @@
    [:div.my-4.row
     [:div.col-auto
      [:h6.fw-bold.text-center "Jugadores nuevos vs recurrentes (TOTAL)"]
-     [:vega-lite {:data {:values (let [pcs (->> sessions
-                                                (filter :valid?)
-                                                (group-by :pc))
+     [:vega-lite {:data {:values (let [pcs (group-by :pc sessions)
                                        freq-map (->> pcs
                                                      (map (fn [[pc sessions]]
                                                             (let [dates (set (map :date sessions))]
@@ -572,7 +554,6 @@
      [:vega-lite {:width 512
                   :height 192
                   :data {:values (->> sessions
-                                      (filter :valid?)
                                       (group-by :game)
                                       (mapcat (fn [[game sessions]]
                                                 (let [pcs (group-by :pc sessions)
@@ -605,9 +586,7 @@
    [:div.row.my-4
     [:div.col-auto
      [:h6.fw-bold.text-center "Jugadores por plataforma"]
-     [:vega-lite {:data {:values (let [platforms-by-pc (update-vals (->> sessions
-                                                                         (filter :valid?)
-                                                                         (group-by :pc))
+     [:vega-lite {:data {:values (let [platforms-by-pc (update-vals (group-by :pc sessions)
                                                                     (fn [sessions]
                                                                       (:platform (first sessions))))
                                        platforms (vals platforms-by-pc)
@@ -625,27 +604,8 @@
                   :layer [{:mark {:type "arc", :innerRadius 50, :point true,
                                   :tooltip {:content "data"}}},
                           {:mark {:type "text", :radius 75, :fill "black"}}]}]]]
-   
-   (comment
-     
-     (do
-       (def games (-> @!state :data :games))
-       (def sessions (-> @!state :data :sessions))
-       (def matches (-> @!state :data :matches)))
-     
 
-     (->> sessions
-          (filter :valid?)
-          (filter (comp #{"US"} :country_code))
-          (map :pc)
-          (set)
-          (count))
-     
-     )
-
-   (let [data (let [country-map (-> (->> sessions
-                                         (filter :valid?)
-                                         (group-by :country))
+   (let [data (let [country-map (-> (group-by :country sessions)
                                     (update-vals (fn [sessions]
                                                    (count (set (map :pc sessions))))))]
                 (map (fn [country]
@@ -855,7 +815,8 @@
   (count sessions)
   (count matches)
 
-  (count (filter :valid? matches))
+  ()
+  (first sessions)
   (first matches)
 
   (:session (meta (first matches)))
