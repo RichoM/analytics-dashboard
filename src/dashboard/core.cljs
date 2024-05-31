@@ -23,9 +23,12 @@
 (defn fetch-data! []
   (go (try
         (println "Fetching data...")
-        (let [data (<? (data/fetch!))]
+        (let [begin-time (js/Date.now)
+              data (<? (data/fetch!))
+              end-time (js/Date.now)
+              elapsed-s (/ (- end-time begin-time) 1000)]
           (when (seq (:games data))
-            (println "Successfully fetched data")
+            (println "Successfully fetched data in" elapsed-s "seconds")
             (reset! !data data)))
         (catch :default err
           (println "ERROR" err)))))
