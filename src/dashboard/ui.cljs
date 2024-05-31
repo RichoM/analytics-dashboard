@@ -706,6 +706,112 @@
                               :color {:value "#5c3696"}}
                    :layer [{:mark {:type :bar :point true :tooltip true}}]}]])])
 
+
+(defn dudeney [{:keys [games sessions matches]}]
+  (comment
+    (do
+      (def games (-> @!state :data :games))
+      (def sessions (-> @!state :data :sessions))
+      (def matches (-> @!state :data :matches)))
+
+    (update-vals data #(get % true))
+
+    (def attempts '(2 1 3 5))
+
+    (f/stats (frequencies attempts)
+             :percentiles [])
+
+
+    (map #(parse-long (str/replace-first % #":painting_?" ""))
+         (map str [:painting_0 :painting_1 :painting_2 :painting_3 :painting_4 :painting_5
+                   :painting_6 :painting_7 :painting_8 :painting_9 :painting10]))
+
+    (map identity data)
+    )
+  (let [data (reduce
+              (fn [acc next]
+                (reduce-kv
+                 (fn [acc painting
+                      {:keys [attempts pivot_changes polygon_rotations
+                              ms_thinking ms_working is_solved]}]
+                   (let [painting (parse-long (str/replace-first (str painting) #":painting_?" ""))]
+                     (-> acc
+                         (update-in [painting is_solved :count] inc)
+                         (update-in [painting is_solved :attempts] conj attempts)
+                         (update-in [painting is_solved :pivot_changes] conj pivot_changes)
+                         (update-in [painting is_solved :polygon_rotations] conj polygon_rotations)
+                         (update-in [painting is_solved :s_thinking] conj (/ ms_thinking 1000))
+                         (update-in [painting is_solved :m_working] conj (/ ms_working 1000 60)))))
+                 acc
+                 next))
+              {}
+              (->> matches
+                   (filter (comp #{"Dudeney's Art Gallery"} :game))
+                   (keep :metadata)))
+        get-stats (memoize (fn [key]
+                             (->> data
+                                  (map (fn [[painting stats]]
+                                         (let [solved-count (get-in stats [true :count])
+                                               unsolved-count (get-in stats [false :count])]
+                                           (-> (f/stats (frequencies (get-in stats [true key]))
+                                                        :percentiles [])
+                                               (dissoc :percentiles)
+                                               (assoc :painting painting
+                                                      :solved-count solved-count
+                                                      :unsolved-count unsolved-count
+                                                      :total-count (+ solved-count
+                                                                      unsolved-count)))))))))]
+    [:div.row
+     [:div.row
+      [:div.col-auto.my-4
+       [:h6.fw-bold.text-center "Movimientos (mediana)"]
+       [:vega-lite.col-auto {:data {:values (get-stats :polygon_rotations)},
+                             :encoding {:x {:field :painting, :type "ordinal"
+                                            :title "Nivel"
+                                            :axis {:labelAngle 0}}
+                                        :y {:field :median
+                                            :type "quantitative"
+                                            :title nil}},
+                             :layer [{:mark {:type "line"
+                                             :point {:size 100}
+                                             :tooltip {:content "data"}}}]}]]
+      [:div.col-auto.my-4
+       [:h6.fw-bold.text-center "Cambios de pivot (mediana)"]
+       [:vega-lite.col-auto {:data {:values (get-stats :pivot_changes)},
+                             :encoding {:x {:field :painting, :type "ordinal"
+                                            :title "Pintura"
+                                            :axis {:labelAngle 0}}
+                                        :y {:field :median
+                                            :type "quantitative"
+                                            :title nil}},
+                             :layer [{:mark {:type "line"
+                                             :point {:size 100}
+                                             :tooltip {:content "data"}}}]}]]
+      [:div.col-auto.my-4
+       [:h6.fw-bold.text-center "Minutos trabajando (mediana)"]
+       [:vega-lite.col-auto {:data {:values (get-stats :m_working)},
+                             :encoding {:x {:field :painting, :type "ordinal"
+                                            :title "Pintura"
+                                            :axis {:labelAngle 0}}
+                                        :y {:field :median
+                                            :type "quantitative"
+                                            :title nil}},
+                             :layer [{:mark {:type "line"
+                                             :point {:size 100}
+                                             :tooltip {:content "data"}}}]}]]
+      [:div.col-auto.my-4
+       [:h6.fw-bold.text-center "Segundos pensando (mediana)"]
+       [:vega-lite.col-auto {:data {:values (get-stats :s_thinking)},
+                             :encoding {:x {:field :painting, :type "ordinal"
+                                            :title "Pintura"
+                                            :axis {:labelAngle 0}}
+                                        :y {:field :median
+                                            :type "quantitative"
+                                            :title nil}},
+                             :layer [{:mark {:type "line"
+                                             :point {:size 100}
+                                             :tooltip {:content "data"}}}]}]]]]))
+
 (defn toggle-btn [text]
   (html [:button.r-button.btn.btn-sm.btn-outline-dark.rounded-pill
          {:type "button" :data-bs-toggle "button"}
@@ -756,10 +862,14 @@
    [:div.row
     [:div#side-bar.col-lg-auto
      [:div.sticky-top.py-2
-      [:div.d-grid (side-bar-btn :sessions-and-matches "Sesiones y partidas")]
-      [:div.row.my-1]
-      [:div.d-grid (side-bar-btn :players "Jugadores")]
-      [:div.row.my-2]
+      [:div.d-grid 
+       (side-bar-btn :sessions-and-matches "Sesiones y partidas")]
+      [:div.d-grid.my-2 
+       (side-bar-btn :players "Jugadores")]
+      (when (contains? (-> @!state :data :games)
+                       "Dudeney's Art Gallery")
+        [:div.d-grid.my-2 
+         (side-bar-btn :dudeney "Dudeney")])
       [:hr]
       [:div
        (map game-checkbox (-> @!state :data :games sort))]]]
@@ -769,7 +879,9 @@
       (when (visible-chart? :sessions-and-matches)
         (sessions-and-matches (:data @!state)))
       (when (visible-chart? :players)
-        (players (:data @!state)))]]]])
+        (players (:data @!state)))
+      (when (visible-chart? :dudeney)
+        (dudeney (:data @!state)))]]]])
 
 
 (defn update-ui! [old-state new-state]
@@ -814,6 +926,33 @@
 
   (count sessions)
   (count matches)
+
+  (def metadata (->> matches
+                     (filter (comp #{"Dudeney's Art Gallery"} :game))
+                     (keep :metadata)))
+
+  (first metadata)
+
+  (update {:a 1} :a + 2)
+
+  (reduce (fn [acc next]
+            (reduce-kv
+             (fn [acc painting
+                  {:keys [attempts pivot_changes polygon_rotations
+                          ms_thinking ms_working is_solved]}]
+               (-> acc
+                   (update-in [painting is_solved :attempts] conj attempts)
+                   (update-in [painting is_solved :pivot_changes] conj pivot_changes)
+                   (update-in [painting is_solved :polygon_rotations] conj polygon_rotations)
+                   (update-in [painting is_solved :ms_thinking] conj ms_thinking)
+                   (update-in [painting is_solved :ms_working] conj ms_working)))
+             acc
+             next))
+          {}
+          (->> matches
+               (filter (comp #{"Dudeney's Art Gallery"} :game))
+               (keep :metadata)))
+
 
   ()
   (first sessions)
