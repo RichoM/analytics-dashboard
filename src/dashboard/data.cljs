@@ -30,7 +30,7 @@
 (defrecord Match [game code date time datetime
                   duration_ms duration_s duration_m
                   mode local? player_count session
-                  valid?])
+                  over? metadata valid?])
 
 (def data-sources [(gs/Spreadsheet. "1JFNNtlTGjFk3BJQFfSTTsQ7IuKjkdTPEcxT7MiLkRyY")
                    (gs/Spreadsheet. "1Yj79TCA0I-73SpLtBQztqNNJ8e-ANPYX5TpPLGZmqqI")])
@@ -80,7 +80,8 @@
         (sort-by :datetime))))
 
 (defn enrich-match
-  [sessions-indexed {:keys [game session date time duration_ms local? player_count] :as match}]
+  [sessions-indexed 
+   {:keys [game session date time duration_ms local? player_count over? metadata] :as match}]
   (let [duration-ms (parse-long duration_ms)
         begin-dt (datetime date time)
         candidate-sessions (get-in sessions-indexed [game session])
@@ -97,6 +98,10 @@
             :duration_m (/ duration-ms 1000 60)
             :local? (= local? "TRUE")
             :player_count (parse-long player_count)
+            :over? (when over? (= over? "TRUE"))
+            :metadata (when metadata
+                        (js->clj (js/JSON.parse metadata)
+                                 :keywordize-keys true))
             :session (:id actual-session)
             :valid? (and (> duration-ms 0)
                          (some? actual-session)
@@ -105,7 +110,7 @@
 
 (defn get-matches! [spreadsheet sessions-indexed]
   (go 
-    (try (->> (<? (gs/get-values! spreadsheet "matches!A:I"))
+    (try (->> (<? (gs/get-values! spreadsheet "matches!A:K"))
                (rows->maps)
                (mapv (partial enrich-match sessions-indexed)))
          (catch :default err
@@ -174,6 +179,9 @@
   (first (-> @data :sessions))
 
   (first (-> @data :matches))
+
+  (->> (:matches @data)
+       (keep :metadata))
 
   (go (reset! data (<! (fetch!))))
   
