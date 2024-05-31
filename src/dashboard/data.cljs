@@ -36,7 +36,7 @@
                    (gs/Spreadsheet. "1Yj79TCA0I-73SpLtBQztqNNJ8e-ANPYX5TpPLGZmqqI")])
 
 (defn enrich-session
-  [{:keys [date time duration_ms match_count version country_code] :as session}]
+  [{:keys [date time duration_ms match_count version country_code ip] :as session}]
   (let [duration-ms (parse-long duration_ms)]
     (map->Session
      (assoc session
@@ -47,6 +47,8 @@
             :match_count (parse-long match_count)
             :country (countries/with-code country_code)
             :valid? (and (> duration-ms 0)
+                         (> match_count 0)
+                         (not (contains? #{"::1" "127.0.0.1" "localhost"} ip))
                          (not (str/blank? version))
                          (not (str/includes? version "DEMO")))))))
 
@@ -87,20 +89,19 @@
                             (take-while (fn [{:keys [datetime]}] 
                                           (<= datetime begin-dt)))
                             (last))]
-    (-> match
-        (assoc :datetime begin-dt
-               :duration_ms duration-ms
-               :duration_s (/ duration-ms 1000)
-               :duration_m (/ duration-ms 1000 60)
-               :local? (= local? "TRUE")
-               :player_count (parse-long player_count)
-               :session (:id actual-session)
-               :valid? (and (> duration-ms 0)
-                            (some? actual-session)
-                            (not (str/blank? (:version actual-session)))
-                            (not (str/includes? (:version actual-session) "DEMO"))))
-        (map->Match)
-        (vary-meta assoc :session actual-session))))
+    (map->Match
+     (assoc match
+            :datetime begin-dt
+            :duration_ms duration-ms
+            :duration_s (/ duration-ms 1000)
+            :duration_m (/ duration-ms 1000 60)
+            :local? (= local? "TRUE")
+            :player_count (parse-long player_count)
+            :session (:id actual-session)
+            :valid? (and (> duration-ms 0)
+                         (some? actual-session)
+                         (not (str/blank? (:version actual-session)))
+                         (not (str/includes? (:version actual-session) "DEMO")))))))
 
 (defn get-matches! [spreadsheet sessions-indexed]
   (go 
@@ -121,10 +122,43 @@
                        (map #(get-matches! % sessions-indexed))
                        (a/map concat)))))))
 
+(defn update-match-count [sessions matches]
+  (let [matches-indexed (->> matches
+                             (filter :valid?)
+                             (group-by :session))]
+    (->> sessions
+         (filter :valid?)
+         (map (fn [{:keys [id] :as session}]
+                (let [match-count (count (get matches-indexed id []))]
+                  (assoc session 
+                         :match_count match-count
+                         :valid? (> match-count 0))))))))
+
+(defn assoc-session [matches sessions]
+  (let [sessions-indexed (->> sessions
+                              (filter :valid?)
+                              (group-by :id))]
+    (->> matches
+         (filter :valid?)
+         (map (fn [{:keys [session] :as match}]
+                (let [sessions (get sessions-indexed session)]
+                  (assert (= 1 (count sessions))
+                          "Only 1 session for each match!")
+                  (vary-meta match assoc :session (first sessions))))))))
+
 (defn fetch! []
   (go (try
-        (let [sessions (<? (get-all-sessions!))
-              matches (<? (get-all-matches! sessions))]
+        (let [; First we get all the sessions and matches
+              sessions (<? (get-all-sessions!))
+              matches (<? (get-all-matches! sessions))
+
+              ; Then we join them and update some of their data 
+              sessions (update-match-count sessions matches)
+              matches (assoc-session matches sessions)
+              
+              ; Finally, we exclude all the invalid sessions and matches
+              sessions (filterv :valid? sessions)
+              matches (filterv :valid? matches)]
           {:games (set (map :game sessions))
            :sessions sessions
            :matches matches})
@@ -198,26 +232,33 @@
     []
     (let [{begin :date} (first sessions)
           {end :date} (last sessions)
+          games (set (map :game sessions))
           sessions (group-by :date sessions)
           matches (group-by :session matches)]
-      (->> (dates-between (js/Date. begin) 
+      (->> (dates-between (js/Date. begin)
                           (js/Date. end))
            (map #(.toISOString %))
            (map #(first (str/split % "T")))
            (mapcat (fn [date]
-                     (mapv (fn [[game sessions]]
-                             (let [match-count (->> sessions
-                                                    (map :id)
-                                                    (map matches)
-                                                    (map count)
-                                                    (reduce +))]
-                               {:game game
-                                :matches match-count
-                                :sessions (count sessions)
-                                :matches-per-session (/ match-count
-                                                        (count sessions))
-                                :date date}))
-                           (group-by :game (sessions date)))))))))
+                     (let [sessions-by-game (group-by :game (sessions date))]
+                       (mapv (fn [game]
+                               (let [sessions (get sessions-by-game game [])
+                                     session-count (count sessions)
+                                     match-count (if (zero? session-count)
+                                                   0
+                                                   (->> sessions
+                                                        (map :id)
+                                                        (map matches)
+                                                        (map count)
+                                                        (reduce +)))]
+                                 {:game game
+                                  :matches match-count
+                                  :sessions session-count
+                                  :matches-per-session (if (zero? session-count)
+                                                         0
+                                                         (/ match-count session-count))
+                                  :date date}))
+                             games))))))))
 
 (defn player-count-by-day [sessions]
   (let [sessions-by-day (group-by-day sessions)
