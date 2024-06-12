@@ -713,28 +713,39 @@
       (def games (-> @!state :data :games))
       (def sessions (-> @!state :data :sessions))
       (def matches (-> @!state :data :matches)))
-
-    (update-vals data #(get % true))
-
-    (def attempts '(2 1 3 5))
-
-    (f/stats (frequencies attempts)
-             :percentiles [])
-
-
-    (map #(parse-long (str/replace-first % #":painting_?" ""))
-         (map str [:painting_0 :painting_1 :painting_2 :painting_3 :painting_4 :painting_5
-                   :painting_6 :painting_7 :painting_8 :painting_9 :painting10]))
-
-    (map identity data)
+    
     )
-  (let [data (reduce
+  
+  (let [dudeney-matches (->> matches
+                             (filter (comp #{"Dudeney's Art Gallery"} :game)))
+        matches-by-pc (group-by (comp :pc :session meta) dudeney-matches)
+        group-related-sessions (fn [matches]
+                                 (let [[groups last-group]
+                                       (reduce (fn [[groups last-group] next]
+                                                 (if (= "NEW" (:mode next))
+                                                   [(conj groups last-group)
+                                                    [next]]
+                                                   [groups (conj last-group next)]))
+                                               [[] [(first matches)]]
+                                               (rest matches))]
+                                   (conj groups last-group)))
+        matches-grouped-by-related-sessions (mapcat group-related-sessions (vals matches-by-pc))
+        merge-metadata (fn [match-group]
+                         (apply merge-with
+                                (partial merge-with +)
+                                (keep :metadata match-group)))
+        accumulated-metadata (->> matches-grouped-by-related-sessions
+                                  (keep merge-metadata))
+        data (reduce
               (fn [acc next]
                 (reduce-kv
                  (fn [acc painting
                       {:keys [attempts pivot_changes polygon_rotations
                               ms_thinking ms_working is_solved]}]
-                   (let [painting (parse-long (str/replace-first (str painting) #":painting_?" ""))]
+                   (let [is_solved (if (int? is_solved)
+                                     (not= 0 is_solved)
+                                     is_solved)
+                         painting (parse-long (str/replace-first (str painting) #":painting_?" ""))]
                      (-> acc
                          (update-in [painting is_solved :count] inc)
                          (update-in [painting is_solved :attempts] conj attempts)
@@ -745,9 +756,7 @@
                  acc
                  next))
               {}
-              (->> matches
-                   (filter (comp #{"Dudeney's Art Gallery"} :game))
-                   (keep :metadata)))
+              accumulated-metadata)
         get-stats (memoize (fn [key]
                              (->> data
                                   (map (fn [[painting stats]]
