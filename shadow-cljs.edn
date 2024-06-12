@@ -14,11 +14,6 @@
 
  :builds {:dev {:target :browser
                 :output-dir "public/main/js"
-                :compiler-options {:optimizations :advanced
-                                   :infer-externs :auto
-                                    ;:pseudo-names true
-                                    ;:pretty-print true
-                                   }
                 :modules {:main {:init-fn dashboard.main-dev/init}}}
           :prod {:target :browser
                  :output-dir "docs/js"
