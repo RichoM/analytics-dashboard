@@ -23,19 +23,17 @@
 (defonce !vega-cache (atom {}))
 
 (comment
-  
+
   (count @!vega-cache)
   (ocall! (:element (first @!vega-views))
-          :remove)
-  
-  )
+          :remove))
 
 (defn vega-finalize! []
   #_(println "vega-finalize!")
   #_(let [[old _] (reset-vals! !vega-views [])]
-    (doseq [view old]
-      (print "Fin!")
-      (ocall! view :finalize))))
+      (doseq [view old]
+        (print "Fin!")
+        (ocall! view :finalize))))
 
 (defn vega-embed! [element spec]
   (doto (js/vegaEmbed element
@@ -108,40 +106,40 @@
    [:div.my-4.col-auto
     [:h6.fw-bold.text-center "Sesiones y partidas por día"]
     [:vega-lite {:width 1024
-                          :height 512
-                          :data {:values (data/sessions-by-day sessions matches)}
-                          :encoding {:x {:field :date
-                                         :type :ordinal
-                                         :title "Fecha"
-                                         :axis {:labelAngle -35}}
-                                     :y {:field :count
-                                         :type :quantitative
-                                         :title "Cantidad"}
-                                     :color {:field :type
-                                             :type :nominal
-                                             :title "Tipo"}}
-                          :layer [{:mark {:type "line"
-                                          :point {:size 100}
-                                          :tooltip true}}]}]]
+                 :height 512
+                 :data {:values (data/sessions-by-day sessions matches)}
+                 :encoding {:x {:field :date
+                                :type :ordinal
+                                :title "Fecha"
+                                :axis {:labelAngle -35}}
+                            :y {:field :count
+                                :type :quantitative
+                                :title "Cantidad"}
+                            :color {:field :type
+                                    :type :nominal
+                                    :title "Tipo"}}
+                 :layer [{:mark {:type "line"
+                                 :point {:size 100}
+                                 :tooltip true}}]}]]
 
    [:div.my-4.col-auto
     [:h6.fw-bold.text-center "Partidas por sesión (promedio diario)"]
     [:vega-lite {:width 1024
-                          :height 512
-                          :data {:values (data/matches-per-session sessions matches)}
-                          :encoding {:x {:field :date
-                                         :type :ordinal
-                                         :title "Fecha"
-                                         :axis {:labelAngle -35}}
-                                     :y {:field :matches-per-session
-                                         :type :quantitative
-                                         :title "Partidas"}
-                                     :color {:field :game
-                                             :type :nominal
-                                             :title "Juego"}}
-                          :layer [{:mark {:type "line"
-                                          :point {:size 100}
-                                          :tooltip true}}]}]]
+                 :height 512
+                 :data {:values (data/matches-per-session sessions matches)}
+                 :encoding {:x {:field :date
+                                :type :ordinal
+                                :title "Fecha"
+                                :axis {:labelAngle -35}}
+                            :y {:field :matches-per-session
+                                :type :quantitative
+                                :title "Partidas"}
+                            :color {:field :game
+                                    :type :nominal
+                                    :title "Juego"}}
+                 :layer [{:mark {:type "line"
+                                 :point {:size 100}
+                                 :tooltip true}}]}]]
    [:div.row.my-4
     [:div.col-auto
      [:h6.fw-bold.text-center "Duración de las sesiones"]
@@ -245,15 +243,15 @@
                                           {:type platform :count count
                                            :percent (percent (/ count total))})
                                         freq-map))}
-                                :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
-                                           :order {:field "count", :type "quantitative", :sort "descending"},
-                                           :color {:field "type",
-                                                   :title nil,
-                                                   :sort {:field "count", :order "descending"}},
-                                           :text {:field :percent, :type "nominal"}},
-                                :layer [{:mark {:type "arc", :innerRadius 50, :point true,
-                                                :tooltip {:content "data"}}},
-                                        {:mark {:type "text", :radius 75, :fill "black"}}]}]]]
+                  :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
+                             :order {:field "count", :type "quantitative", :sort "descending"},
+                             :color {:field "type",
+                                     :title nil,
+                                     :sort {:field "count", :order "descending"}},
+                             :text {:field :percent, :type "nominal"}},
+                  :layer [{:mark {:type "arc", :innerRadius 50, :point true,
+                                  :tooltip {:content "data"}}},
+                          {:mark {:type "text", :radius 75, :fill "black"}}]}]]]
 
    [:div.row.my-4
     [:div.col-4
@@ -706,36 +704,34 @@
                               :color {:value "#5c3696"}}
                    :layer [{:mark {:type :bar :point true :tooltip true}}]}]])])
 
+(defn- group-related-dudeney-sessions [matches]
+  (let [[groups last-group]
+        (reduce (fn [[groups last-group] next]
+                  (if (= "NEW" (:mode next))
+                    [(conj groups last-group) [next]]
+                    [groups (conj last-group next)]))
+                [[] [(first matches)]]
+                (rest matches))]
+    (conj groups last-group)))
+
+(defn- merge-dudeney-metadata [match-group]
+  (apply merge-with
+         (partial merge-with +)
+         (keep :metadata match-group)))
 
 (defn dudeney [{:keys [games sessions matches]}]
   (comment
     (do
       (def games (-> @!state :data :games))
       (def sessions (-> @!state :data :sessions))
-      (def matches (-> @!state :data :matches)))
-    
-    )
-  
+      (def matches (-> @!state :data :matches))))
+
   (let [dudeney-matches (->> matches
                              (filter (comp #{"Dudeney's Art Gallery"} :game)))
         matches-by-pc (group-by (comp :pc :session meta) dudeney-matches)
-        group-related-sessions (fn [matches]
-                                 (let [[groups last-group]
-                                       (reduce (fn [[groups last-group] next]
-                                                 (if (= "NEW" (:mode next))
-                                                   [(conj groups last-group)
-                                                    [next]]
-                                                   [groups (conj last-group next)]))
-                                               [[] [(first matches)]]
-                                               (rest matches))]
-                                   (conj groups last-group)))
-        matches-grouped-by-related-sessions (mapcat group-related-sessions (vals matches-by-pc))
-        merge-metadata (fn [match-group]
-                         (apply merge-with
-                                (partial merge-with +)
-                                (keep :metadata match-group)))
-        accumulated-metadata (->> matches-grouped-by-related-sessions
-                                  (keep merge-metadata))
+        accumulated-metadata (->> (vals matches-by-pc)
+                                  (mapcat group-related-dudeney-sessions)
+                                  (keep merge-dudeney-metadata))
         data (reduce
               (fn [acc next]
                 (reduce-kv
@@ -843,8 +839,8 @@
                          (fn [visible-charts]
                            #{chart-id}
                            #_(if (contains? visible-charts chart-id)
-                             (disj visible-charts chart-id)
-                             (conj visible-charts chart-id)))))))
+                               (disj visible-charts chart-id)
+                               (conj visible-charts chart-id)))))))
 
 (defn game-keyword [game-name]
   (-> game-name
@@ -871,13 +867,13 @@
    [:div.row
     [:div#side-bar.col-lg-auto
      [:div.sticky-top.py-2
-      [:div.d-grid 
+      [:div.d-grid
        (side-bar-btn :sessions-and-matches "Sesiones y partidas")]
-      [:div.d-grid.my-2 
+      [:div.d-grid.my-2
        (side-bar-btn :players "Jugadores")]
       (when (contains? (-> @!state :data :games)
                        "Dudeney's Art Gallery")
-        [:div.d-grid.my-2 
+        [:div.d-grid.my-2
          (side-bar-btn :dudeney "Dudeney")])
       [:hr]
       [:div
@@ -906,7 +902,7 @@
 (defn update-filters! [{:keys [sessions matches]}]
   (let [filters (:game-filters @!state)]
     (swap! !state update :data
-           assoc 
+           assoc
            :sessions (filter (comp filters :game) sessions)
            :matches (filter (comp filters :game) matches))))
 
@@ -967,6 +963,4 @@
   (first sessions)
   (first matches)
 
-  (:session (meta (first matches)))
-
-  )
+  (:session (meta (first matches))))
