@@ -9,6 +9,7 @@
             [utils.frequencies :as f]
             [utils.core :refer [indexed-by percent seek]]
             [crate.core :as crate]
+            [dashboard.vega :as vega]
             [dashboard.data :as data]
             [dashboard.countries :as countries]))
 
@@ -16,56 +17,8 @@
                                 :match-duration {}}
                        :visible-charts #{:sessions-and-matches}}))
 
-(declare html)
-
-(defonce !vega-views (atom []))
-
-(defonce !vega-cache (atom {}))
-
-(comment
-
-  (count @!vega-cache)
-  (ocall! (:element (first @!vega-views))
-          :remove))
-
-(defn vega-finalize! []
-  #_(println "vega-finalize!")
-  #_(let [[old _] (reset-vals! !vega-views [])]
-      (doseq [view old]
-        (print "Fin!")
-        (ocall! view :finalize))))
-
-(defn vega-embed! [element spec]
-  (doto (js/vegaEmbed element
-                      (clj->js spec)
-                      (clj->js {:mode :vega-lite}))
-    (.then (fn [result]
-             (swap! !vega-views conj result)))
-    (.catch js/console.warn)))
-
-(defn vega-replace! [element]
-  (if-let [res (get @!vega-cache element)]
-    res
-    (let [[tag & content] element
-          [attrs] (drop-last content)
-          spec (last content)
-          res (doto (html [(keyword (str/replace-first (str tag) ":vega-lite" "div"))
-                           (or attrs {})])
-                (.appendChild (doto (js/document.createElement "div")
-                                (vega-embed! spec))))]
-      (swap! !vega-cache assoc element res)
-      res)))
-
-(defn html-vega [element]
-  (if (vector? element)
-    (let [[tag & content] element]
-      (if (str/starts-with? (str tag) ":vega-lite")
-        (vega-replace! element)
-        (vec (keep html-vega element))))
-    element))
-
 (defn html [element]
-  (let [element (html-vega element)]
+  (let [element (vega/html html element)]
     (if (vector? element)
       (crate/html element)
       element)))
@@ -890,7 +843,7 @@
 
 
 (defn update-ui! [old-state new-state]
-  (vega-finalize!)
+  (vega/finalize!)
   (doto (get-element-by-id "content")
     (clear!)
     (append! (main-container)))
