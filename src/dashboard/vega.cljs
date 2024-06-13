@@ -94,3 +94,25 @@
                                                  color)}},
                        {:mark {:type "tick", :color "white", :size 14},
                         :encoding {:y {:field :median, :type "quantitative"}}}]}])
+
+(defn arc [& {:keys [values theta order color width height]}]
+  [:vega-lite 
+   (cond-> {:data {:values values}
+            :encoding {:theta (cond-> {:field :count
+                                       :type :quantitative
+                                       :stack :normalize}
+                                theta (merge theta))
+                       :order (cond-> {:field :count
+                                       :type :quantitative
+                                       :sort :descending}
+                                order (merge order))
+                       :color (cond-> {:field :color
+                                       :title nil
+                                       :sort {:field :count :order :descending}}
+                                color (merge color))
+                       :text {:field :percent, :type :nominal}},
+            :layer [{:mark {:type :arc, :innerRadius 50, :point true,
+                            :tooltip {:content :data}}},
+                    {:mark {:type :text, :radius 75, :fill :black}}]}
+     width (assoc :width width)
+     height (assoc :height height))])

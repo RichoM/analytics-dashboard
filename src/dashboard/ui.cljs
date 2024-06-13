@@ -145,22 +145,14 @@
    [:div.row.my-4
     [:div.col-4
      [:h6.fw-bold.text-center "Sesiones por plataforma"]
-     [:vega-lite {:data {:values (let [platforms (map :platform sessions)
-                                       freq-map (frequencies platforms)
-                                       total (count platforms)]
-                                   (map (fn [[platform count]]
-                                          {:type platform :count count
-                                           :percent (percent (/ count total))})
-                                        freq-map))}
-                  :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
-                             :order {:field "count", :type "quantitative", :sort "descending"},
-                             :color {:field "type",
-                                     :title nil,
-                                     :sort {:field "count", :order "descending"}},
-                             :text {:field :percent, :type "nominal"}},
-                  :layer [{:mark {:type "arc", :innerRadius 50, :point true,
-                                  :tooltip {:content "data"}}},
-                          {:mark {:type "text", :radius 75, :fill "black"}}]}]]
+     (vega/arc :values (let [platforms (map :platform sessions)
+                             freq-map (frequencies platforms)
+                             total (count platforms)]
+                         (map (fn [[platform count]]
+                                {:type platform :count count
+                                 :percent (percent (/ count total))})
+                              freq-map))
+               :color {:field :type})]
 
     [:div.col-4
      [:h6.fw-bold.text-center "Partidas por plataforma"]
