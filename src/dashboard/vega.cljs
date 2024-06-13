@@ -52,48 +52,48 @@
     element))
 
 (defn line [& {:keys [values x y color width height]}]
-  [:vega-lite {:width (or width 1024)
-               :height (or height 512)
-               :data {:values values}
-               :encoding (let [encoding {:x (merge {:field :x
-                                                    :type :ordinal
-                                                    :title nil
-                                                    :axis {:labelAngle -35}}
-                                                   x)
-                                         :y (merge {:field :y
-                                                    :type :quantitative
+  [:vega-lite
+   (cond-> {:data {:values values}
+            :encoding (cond-> {:x {:field :x
+                                   :type :ordinal
+                                   :title nil
+                                   :axis {:labelAngle -35}}
+                               :y {:field :y
+                                   :type :quantitative
+                                   :title nil}}
+                        x (update :x merge x)
+                        y (update :y merge y)
+                        color (assoc :color (merge {:field :color
+                                                    :type :nominal
                                                     :title nil}
-                                                   y)}]
-                           (if color
-                             (assoc encoding 
-                                    :color (merge {:field :color
-                                                   :type :nominal
-                                                   :title nil}
-                                                  color))
-                             encoding))
-               :layer [{:mark {:type "line"
-                               :point {:size 100}
-                               :tooltip true}}]}])
+                                                   color)))
+            :layer [{:mark {:type :line
+                            :point {:size 100}
+                            :tooltip true}}]}
+     width (assoc :width width)
+     height (assoc :height height))])
 
 (defn boxplot [& {:keys [values x y color width height]}]
-  [:vega-lite {:width (or width 1024)
-               :height (or height 512)
-               :data {:values values},
-               :encoding {:x (merge {:field :x, :type :nominal
-                                     :title nil
-                                     :axis {:labelAngle -35}}
-                                    x)
-                          :y (or y {:title nil})},
-               :layer [{:mark {:type "rule"},
-                        :encoding {:y {:field :lower, :type "quantitative", :scale {:zero false}},
-                                   :y2 {:field :upper}}},
-                       {:mark {:type "bar", :size 14 :tooltip {:content "data"}},
-                        :encoding {:y {:field :q1, :type "quantitative"},
-                                   :y2 {:field :q3}
-                                   :color (merge {:field :color :title nil}
-                                                 color)}},
-                       {:mark {:type "tick", :color "white", :size 14},
-                        :encoding {:y {:field :median, :type "quantitative"}}}]}])
+  [:vega-lite
+   (cond-> {:data {:values values},
+            :encoding (cond-> {:x {:field :x, :type :nominal
+                                   :title nil
+                                   :axis {:labelAngle -35}}
+                               :y {:title nil}}
+                        x (update :x merge x)
+                        y (update :y merge y)),
+            :layer [{:mark {:type :rule},
+                     :encoding {:y {:field :lower, :type :quantitative, :scale {:zero false}},
+                                :y2 {:field :upper}}},
+                    {:mark {:type :bar, :size 14 :tooltip {:content :data}},
+                     :encoding {:y {:field :q1, :type :quantitative},
+                                :y2 {:field :q3}
+                                :color (cond-> {:field :color :title nil}
+                                         color (merge color))}},
+                    {:mark {:type :tick, :color :white, :size 14},
+                     :encoding {:y {:field :median, :type :quantitative}}}]}
+     width (assoc :width width)
+     height (assoc :height height))])
 
 (defn arc [& {:keys [values theta order color width height]}]
   [:vega-lite 

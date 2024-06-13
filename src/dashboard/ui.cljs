@@ -94,8 +94,9 @@
 (defn sessions-and-matches [{:keys [games sessions matches]}]
   [:div.row
    [:div.my-4.col-auto
-    [:h6.fw-bold.text-center "Sesiones y partidas por día"]
+    [:h6.fw-bold.mx-5 "Sesiones y partidas por día"]
     (vega/line :values (data/sessions-by-day sessions matches)
+               :width 1024 ; :height 512
                :x {:field :date
                    :title "Fecha"}
                :y {:field :count
@@ -104,8 +105,9 @@
                        :title "Tipo"})]
 
    [:div.my-4.col-auto
-    [:h6.fw-bold.text-center "Partidas por sesión (promedio diario)"]
+    [:h6.fw-bold.mx-5 "Partidas por sesión (promedio diario)"]
     (vega/line :values (data/matches-per-session sessions matches)
+               :width 1024 ; :height 512
                :x {:field :date
                    :title "Fecha"}
                :y {:field :matches-per-session
@@ -114,7 +116,7 @@
                        :title "Juego"})]
    [:div.row.my-4
     [:div.col-auto
-     [:h6.fw-bold.text-center "Duración de las sesiones"]
+     [:h6.fw-bold.mx-5 "Duración de las sesiones"]
      (vega/boxplot :values (->> sessions
                                 (group-by :game)
                                 (map (fn [[game sessions]]
@@ -126,7 +128,7 @@
                    :color {:field :game :title "Juego"})]
 
     [:div.col-auto
-     [:h6.fw-bold.text-center "Duración de las partidas (excluyendo outliers)"]
+     [:h6.fw-bold.mx-5 "Duración de las partidas"]
      (vega/boxplot :values (->> matches
                                 (map normalize-mode)
                                 (group-by #(select-keys % [:game :mode]))
@@ -144,7 +146,7 @@
 
    [:div.row.my-4
     [:div.col-4
-     [:h6.fw-bold.text-center "Sesiones por plataforma"]
+     [:h6.fw-bold.mx-5 "Sesiones por plataforma"]
      (vega/arc :values (let [platforms (map :platform sessions)
                              freq-map (frequencies platforms)
                              total (count platforms)]
@@ -155,7 +157,7 @@
                :color {:field :type})]
 
     [:div.col-4
-     [:h6.fw-bold.text-center "Partidas por plataforma"]
+     [:h6.fw-bold.mx-5 "Partidas por plataforma"]
      [:vega-lite {:data {:values (let [platforms (map (comp :platform :session meta) matches)
                                        freq-map (frequencies platforms)
                                        total (count platforms)]
