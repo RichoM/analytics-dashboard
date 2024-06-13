@@ -158,69 +158,45 @@
 
     [:div.col-4
      [:h6.fw-bold.mx-5 "Partidas por plataforma"]
-     [:vega-lite {:data {:values (let [platforms (map (comp :platform :session meta) matches)
-                                       freq-map (frequencies platforms)
-                                       total (count platforms)]
-                                   (map (fn [[platform count]]
-                                          {:type platform :count count
-                                           :percent (percent (/ count total))})
-                                        freq-map))}
-                  :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
-                             :order {:field "count", :type "quantitative", :sort "descending"},
-                             :color {:field "type",
-                                     :title nil,
-                                     :sort {:field "count", :order "descending"}},
-                             :text {:field :percent, :type "nominal"}},
-                  :layer [{:mark {:type "arc", :innerRadius 50, :point true,
-                                  :tooltip {:content "data"}}},
-                          {:mark {:type "text", :radius 75, :fill "black"}}]}]]]
+     (vega/arc :values (let [platforms (map (comp :platform :session meta) matches)
+                             freq-map (frequencies platforms)
+                             total (count platforms)]
+                         (map (fn [[platform count]]
+                                {:type platform :count count
+                                 :percent (percent (/ count total))})
+                              freq-map))
+               :color {:field :type})]]
 
    [:div.row.my-4
     [:div.col-4
-     [:h6.fw-bold.text-center "Cantidad de sesiones por versión"]
-     [:vega-lite {:width 256
-                  :height 256
-                  :data {:values (->> sessions
-                                      (map #(select-keys % [:game :version]))
-                                      (group-by :game)
-                                      (mapcat (fn [[game sessions]]
-                                                (map (fn [[version count]]
-                                                       {:game game :version (str game " v" version) :count count})
-                                                     (update-vals (group-by :version sessions) count)))))}
-                  :encoding {:x {:field :version
-                                 :type :ordinal
-                                 :axis {:labelAngle -35}
-                                 :title "Fecha"}
-                             :y {:field :count
-                                 :type :quantitative
-                                 :title "Cantidad"}
-                             :color {:field :game
-                                     :title nil}}
-                  :layer [{:mark {:type :bar :point true :tooltip true}}]}]]
+     [:h6.fw-bold.mx-5 "Sesiones por versión"]
+     (vega/bar :values (->> sessions
+                            (map #(select-keys % [:game :version]))
+                            (group-by :game)
+                            (mapcat (fn [[game sessions]]
+                                      (map (fn [[version count]]
+                                             {:game game :version (str game " v" version) :count count})
+                                           (update-vals (group-by :version sessions) count)))))
+               :x {:field :version}
+               :y {:field :count :title "Cantidad"}
+               :color {:field :game}
+               :width 256 :height 256)]
 
     [:div.col-4
-     [:h6.fw-bold.text-center "Cantidad de partidas por versión"]
-     [:vega-lite {:width 256
-                  :height 256
-                  :data {:values (->> matches
-                                      (map (fn [match]
-                                             (assoc match :version (-> match meta :session :version))))
-                                      (map #(select-keys % [:game :version]))
-                                      (group-by :game)
-                                      (mapcat (fn [[game matches]]
-                                                (map (fn [[version count]]
-                                                       {:game game :version (str game " v" version) :count count})
-                                                     (update-vals (group-by :version matches) count)))))}
-                  :encoding {:x {:field :version
-                                 :type :ordinal
-                                 :axis {:labelAngle -35}
-                                 :title "Fecha"}
-                             :y {:field :count
-                                 :type :quantitative
-                                 :title "Cantidad"}
-                             :color {:field :game
-                                     :title nil}}
-                  :layer [{:mark {:type :bar :point true :tooltip true}}]}]]]
+     [:h6.fw-bold.mx-5 "Partidas por versión"]
+     (vega/bar :values (->> matches
+                            (map (fn [match]
+                                   (assoc match :version (-> match meta :session :version))))
+                            (map #(select-keys % [:game :version]))
+                            (group-by :game)
+                            (mapcat (fn [[game matches]]
+                                      (map (fn [[version count]]
+                                             {:game game :version (str game " v" version) :count count})
+                                           (update-vals (group-by :version matches) count)))))
+               :x {:field :version}
+               :y {:field :count :title "Cantidad"}
+               :color {:field :game}
+               :width 256 :height 256)]]
 
    (let [data (let [country-map (-> (group-by :country sessions)
                                     (update-vals count))]

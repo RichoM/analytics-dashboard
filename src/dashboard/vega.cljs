@@ -116,3 +116,22 @@
                     {:mark {:type :text, :radius 75, :fill :black}}]}
      width (assoc :width width)
      height (assoc :height height))])
+
+(defn bar [& {:keys [values x y color width height]}]
+  [:vega-lite
+   (cond-> {:data {:values values}
+            :encoding (cond-> {:x {:field :x
+                                   :type :ordinal
+                                   :axis {:labelAngle -35}
+                                   :title nil}
+                               :y {:field :y
+                                   :type :quantitative
+                                   :title nil}}
+                        x (update :x merge x)
+                        y (update :y merge y)
+                        color (assoc :color (merge {:field :color
+                                                    :title nil}
+                                                   color)))
+            :layer [{:mark {:type :bar :point true :tooltip true}}]}
+     width (assoc :width width)
+     height (assoc :height height))])
