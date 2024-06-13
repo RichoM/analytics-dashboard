@@ -54,118 +54,93 @@
                             (html child)
                             child))))
 
+(defn normalize-mode [{:keys [game mode local?] :as match}]
+  (assoc match
+         :mode (case (str/lower-case game)
+
+                 "astrobrawl"
+                 (if (= mode "DEATHMATCH")
+                   (if local?
+                     "DEATHMATCH local"
+                     "DEATHMATCH online")
+                   mode)
+
+                 "wizards of lezama"
+                 (if (= mode "PRACTICE")
+                   "PAPABLANCA"
+                   mode)
+
+                 "retro racing: double dash"
+                 (let [mode (first (str/split mode #","))]
+                   (if (= mode "RACE")
+                     (if local?
+                       "RACE local"
+                       "RACE online")
+                     mode))
+
+                 mode)))
+
+(defn boxplot-stats [data]
+  (let [{:keys [percentiles sample-count]}
+        (f/stats (frequencies data)
+                 :percentiles [9 25 50 75 91])]
+    {:count sample-count
+     :lower (percentiles :p9)
+     :q1 (percentiles :p25)
+     :median (percentiles :p50)
+     :q3 (percentiles :p75)
+     :upper (percentiles :p91)}))
+
 (defn sessions-and-matches [{:keys [games sessions matches]}]
   [:div.row
    [:div.my-4.col-auto
     [:h6.fw-bold.text-center "Sesiones y partidas por día"]
-    [:vega-lite {:width 1024
-                 :height 512
-                 :data {:values (data/sessions-by-day sessions matches)}
-                 :encoding {:x {:field :date
-                                :type :ordinal
-                                :title "Fecha"
-                                :axis {:labelAngle -35}}
-                            :y {:field :count
-                                :type :quantitative
-                                :title "Cantidad"}
-                            :color {:field :type
-                                    :type :nominal
-                                    :title "Tipo"}}
-                 :layer [{:mark {:type "line"
-                                 :point {:size 100}
-                                 :tooltip true}}]}]]
+    (vega/line :values (data/sessions-by-day sessions matches)
+               :x {:field :date
+                   :title "Fecha"}
+               :y {:field :count
+                   :title "Cantidad"}
+               :color {:field :type
+                       :title "Tipo"})]
 
    [:div.my-4.col-auto
     [:h6.fw-bold.text-center "Partidas por sesión (promedio diario)"]
-    [:vega-lite {:width 1024
-                 :height 512
-                 :data {:values (data/matches-per-session sessions matches)}
-                 :encoding {:x {:field :date
-                                :type :ordinal
-                                :title "Fecha"
-                                :axis {:labelAngle -35}}
-                            :y {:field :matches-per-session
-                                :type :quantitative
-                                :title "Partidas"}
-                            :color {:field :game
-                                    :type :nominal
-                                    :title "Juego"}}
-                 :layer [{:mark {:type "line"
-                                 :point {:size 100}
-                                 :tooltip true}}]}]]
+    (vega/line :values (data/matches-per-session sessions matches)
+               :x {:field :date
+                   :title "Fecha"}
+               :y {:field :matches-per-session
+                   :title "Partidas"}
+               :color {:field :game
+                       :title "Juego"})]
    [:div.row.my-4
     [:div.col-auto
      [:h6.fw-bold.text-center "Duración de las sesiones"]
-     [:vega-lite {:width 256
-                  :height 512
-                  :data {:values (mapv #(select-keys % [:game :duration_m]) sessions)}
-                  :encoding {:x {:field :game
-                                 :type :nominal
-                                 :title nil
-                                 :axis {:labelAngle -35}
-                                 :sort {:field :game}}
-                             :y {:field :duration_m
-                                 :type :quantitative
-                                 :title "Duración (minutos)"}
-                             :color {:field :game :title "Juego"}}
-                  :layer [{:mark {:type "boxplot"}}]}]]
+     (vega/boxplot :values (->> sessions
+                                (group-by :game)
+                                (map (fn [[game sessions]]
+                                       (assoc (boxplot-stats (map :duration_m sessions))
+                                              :game game))))
+                   :width 256
+                   :x {:field :game}
+                   :y {:title "Duración (minutos)"}
+                   :color {:field :game :title "Juego"})]
 
     [:div.col-auto
      [:h6.fw-bold.text-center "Duración de las partidas (excluyendo outliers)"]
-     [:vega-lite.my-4.col-auto {:width 512
-                                :height 512
-                                :data {:values (->> matches
-                                                    (map (fn [{:keys [game mode local?] :as match}]
-                                                           (assoc match
-                                                                  :mode (case (str/lower-case game)
-
-                                                                          "astrobrawl"
-                                                                          (if (= mode "DEATHMATCH")
-                                                                            (if local?
-                                                                              "DEATHMATCH local"
-                                                                              "DEATHMATCH online")
-                                                                            mode)
-
-                                                                          "wizards of lezama"
-                                                                          (if (= mode "PRACTICE")
-                                                                            "PAPABLANCA"
-                                                                            mode)
-
-                                                                          "retro racing: double dash"
-                                                                          (let [mode (first (str/split mode #","))]
-                                                                            (if (= mode "RACE")
-                                                                              (if local?
-                                                                                "RACE local"
-                                                                                "RACE online")
-                                                                              mode))
-
-                                                                          mode))))
-                                                    (group-by #(select-keys % [:game :mode]))
-                                                    (map (fn [[{:keys [game mode]} matches]]
-                                                           (let [{:keys [percentiles sample-count]}
-                                                                 (f/stats (frequencies (map :duration_m matches))
-                                                                          :percentiles [9 25 50 75 91])]
-                                                             {:game game :mode mode
-                                                              :count sample-count
-                                                              :lower (percentiles :p9)
-                                                              :q1 (percentiles :p25)
-                                                              :median (percentiles :p50)
-                                                              :q3 (percentiles :p75)
-                                                              :upper (percentiles :p91)}))))},
-                                :encoding {:x {:field :mode, :type "nominal"
-                                               :title "Tipo de partida"
-                                               :axis {:labelAngle -35}
-                                               :sort {:field :game}}
-                                           :y {:title "Duración (minutos)"}},
-                                :layer [{:mark {:type "rule"},
-                                         :encoding {:y {:field :lower, :type "quantitative", :scale {:zero false}},
-                                                    :y2 {:field :upper}}},
-                                        {:mark {:type "bar", :size 14 :tooltip {:content "data"}},
-                                         :encoding {:y {:field :q1, :type "quantitative"},
-                                                    :y2 {:field :q3},
-                                                    :color {:field :game, :type "nominal" :title "Juego"}}},
-                                        {:mark {:type "tick", :color "white", :size 14},
-                                         :encoding {:y {:field :median, :type "quantitative"}}}]}]]]
+     (vega/boxplot :values (->> matches
+                                (map normalize-mode)
+                                (group-by #(select-keys % [:game :mode]))
+                                (map (fn [[{:keys [game mode]} matches]]
+                                       (assoc (boxplot-stats (map :duration_m matches))
+                                              :game game
+                                              :mode mode))))
+                   :width 512
+                   :x {:field :mode
+                       :title "Tipo de partida"
+                       :sort {:field :game}}
+                   :y {:title "Duración (minutos)"}
+                   :color {:field :game
+                           :title "Color"})]]
 
    [:div.row.my-4
     [:div.col-4
