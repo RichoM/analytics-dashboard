@@ -198,203 +198,30 @@
                :color {:field :game}
                :width 256 :height 256)]]
 
-   (let [data (let [country-map (-> (group-by :country sessions)
-                                    (update-vals count))]
-                (map (fn [country]
-                       (let [count (get country-map country 0)]
-                         {:id (:id country)
-                          :name (:name country)
-                          :tooltip (str (:name country) ": " count)
-                          :count count}))
-                     countries/all-countries))
-         domain [0 (apply max (map :count data))]]
-     [:div.my-4.col-auto
-      [:h6.fw-bold.text-center "Sesiones por país"]
-      [:vega-lite {:width 1024
-                   :height 512
-                   :autosize "none"
-                   :signals [{:name "tx", :update "width / 2"},
-                             {:name "ty", :update "height / 2"},
-                             {:name "scale",
-                              :value 150,
-                              :on [{:events {:type "wheel", :consume true},
-                                    :update "clamp(scale * pow(1.0005, -event.deltaY * pow(16, event.deltaMode)), 150, 3000)"}]},
-                             {:name "angles",
-                              :value [0, 0],
-                              :on [{:events "pointerdown",
-                                    :update "[rotateX, centerY]"}]},
-                             {:name "cloned",
-                              :value nil,
-                              :on [{:events "pointerdown",
-                                    :update "copy('projection')"}]},
-                             {:name "start",
-                              :value nil,
-                              :on [{:events "pointerdown",
-                                    :update "invert(cloned, xy())"}]},
-                             {:name "drag", :value nil,
-                              :on [{:events "[pointerdown, window:pointerup] > window:pointermove",
-                                    :update "invert(cloned, xy())"}]},
-                             {:name "delta", :value nil,
-                              :on [{:events {:signal "drag"},
-                                    :update "[drag[0] - start[0], start[1] - drag[1]]"}]},
-                             {:name "rotateX", :value 0,
-                              :on [{:events {:signal "delta"},
-                                    :update "angles[0] + delta[0]"}]},
-                             {:name "centerY", :value 0,
-                              :on [{:events {:signal "delta"},
-                                    :update "clamp(angles[1] + delta[1], -60, 60)"}]}]
-                   :projections [{:name "projection",
-                                  :type "mercator",
-                                  :scale {:signal "scale"},
-                                  :rotate [{:signal "rotateX"}, 0, 0],
-                                  :center [0, {:signal "centerY"}],
-                                  :translate [{:signal "tx"}, {:signal "ty"}]}]
-                   :data [{:name "data"
-                           :values data}
-                          {:name "world",
-                           :url "https://vega.github.io/editor/data/world-110m.json",
-                           :format {:type "topojson",
-                                    :feature "countries"}
-                           :transform [{:type :lookup :from "data" :key :id
-                                        :fields [:id] :values [:count :tooltip]}]},
-                          {:name "graticule",
-                           :transform [{:type "graticule"}]}]
-                   :scales [{:name "color"
-                             :type "quantize"
-                             :domain domain
-                             :range {:scheme "blues" :count 7}}]
-                   :legends [{:fill "color"
-                              :title nil
-                              :orient "top-left"}]
-                   :marks [{:type "shape",
-                            :from {:data "graticule"},
-                            :encode {:update {:strokeWidth {:value 1},
-                                              :strokeDash {:value [2, 5]},
-                                              :stroke {:value "#abc"},
-                                              :fill {:value nil}}},
-                            :transform [{:type "geoshape", :projection "projection"}]},
-                           {:type "shape",
-                            :from {:data "world"},
-                            :encode {:update {:strokeWidth {:value 0.5},
-                                              :stroke {:value "#fff"},
-                                              :fill {:scale "color" :field :count},
-                                              :zindex {:value 0}
-                                              :tooltip {:field :tooltip}}},
-                            :transform [{:type "geoshape", :projection "projection"}]}]}]
-      [:vega-lite {:height 128
-                   :data {:values (->> data
-                                       (sort-by :count)
-                                       (reverse)
-                                       (take 45))}
-                   :encoding {:x {:field :name
-                                  :type :ordinal
-                                  :sort {:field "count", :order "descending"}
-                                  :axis {:labelAngle -35}
-                                  :title nil}
-                              :y {:field :count
-                                  :type :quantitative
-                                  :title "Cantidad"}}
-                   :layer [{:mark {:type :bar :point true :tooltip true}}]}]])
+   [:div.my-4.col-auto
+    [:h6.fw-bold.mx-5 "Sesiones por país"]
+    (vega/world-map :values (let [country-map (-> (group-by :country sessions)
+                                                  (update-vals count))]
+                              (map (fn [country]
+                                     (let [count (get country-map country 0)]
+                                       {:id (:id country)
+                                        :name (:name country)
+                                        :tooltip (str (:name country) ": " count)
+                                        :count count}))
+                                   countries/all-countries)))]
 
-   (let [data (let [country-map (-> (group-by (comp :country :session meta) matches)
-                                    (update-vals count))]
-                (map (fn [country]
-                       (let [count (get country-map country 0)]
-                         {:id (:id country)
-                          :name (:name country)
-                          :tooltip (str (:name country) ": " count)
-                          :count count}))
-                     countries/all-countries))
-         domain [0 (apply max (map :count data))]]
-     [:div.my-4.col-auto
-      [:h6.fw-bold.text-center "Partidas por país"]
-      [:vega-lite {:width 1024
-                   :height 512
-                   :autosize "none"
-                   :signals [{:name "tx", :update "width / 2"},
-                             {:name "ty", :update "height / 2"},
-                             {:name "scale",
-                              :value 150,
-                              :on [{:events {:type "wheel", :consume true},
-                                    :update "clamp(scale * pow(1.0005, -event.deltaY * pow(16, event.deltaMode)), 150, 3000)"}]},
-                             {:name "angles",
-                              :value [0, 0],
-                              :on [{:events "pointerdown",
-                                    :update "[rotateX, centerY]"}]},
-                             {:name "cloned",
-                              :value nil,
-                              :on [{:events "pointerdown",
-                                    :update "copy('projection')"}]},
-                             {:name "start",
-                              :value nil,
-                              :on [{:events "pointerdown",
-                                    :update "invert(cloned, xy())"}]},
-                             {:name "drag", :value nil,
-                              :on [{:events "[pointerdown, window:pointerup] > window:pointermove",
-                                    :update "invert(cloned, xy())"}]},
-                             {:name "delta", :value nil,
-                              :on [{:events {:signal "drag"},
-                                    :update "[drag[0] - start[0], start[1] - drag[1]]"}]},
-                             {:name "rotateX", :value 0,
-                              :on [{:events {:signal "delta"},
-                                    :update "angles[0] + delta[0]"}]},
-                             {:name "centerY", :value 0,
-                              :on [{:events {:signal "delta"},
-                                    :update "clamp(angles[1] + delta[1], -60, 60)"}]}]
-                   :projections [{:name "projection",
-                                  :type "mercator",
-                                  :scale {:signal "scale"},
-                                  :rotate [{:signal "rotateX"}, 0, 0],
-                                  :center [0, {:signal "centerY"}],
-                                  :translate [{:signal "tx"}, {:signal "ty"}]}]
-                   :data [{:name "data"
-                           :values data}
-                          {:name "world",
-                           :url "https://vega.github.io/editor/data/world-110m.json",
-                           :format {:type "topojson",
-                                    :feature "countries"}
-                           :transform [{:type :lookup :from "data" :key :id
-                                        :fields [:id] :values [:count :tooltip]}]},
-                          {:name "graticule",
-                           :transform [{:type "graticule"}]}]
-                   :scales [{:name "color"
-                             :type "quantize"
-                             :domain domain
-                             :range {:scheme "purples" :count 7}}]
-                   :legends [{:fill "color"
-                              :title nil
-                              :orient "top-left"}]
-                   :marks [{:type "shape",
-                            :from {:data "graticule"},
-                            :encode {:update {:strokeWidth {:value 1},
-                                              :strokeDash {:value [2, 5]},
-                                              :stroke {:value "#abc"},
-                                              :fill {:value nil}}},
-                            :transform [{:type "geoshape", :projection "projection"}]},
-                           {:type "shape",
-                            :from {:data "world"},
-                            :encode {:update {:strokeWidth {:value 0.5},
-                                              :stroke {:value "#fff"},
-                                              :fill {:scale "color" :field :count},
-                                              :zindex {:value 0}
-                                              :tooltip {:field :tooltip}}},
-                            :transform [{:type "geoshape", :projection "projection"}]}]}]
-
-      [:vega-lite {:height 128
-                   :data {:values (->> data
-                                       (sort-by :count)
-                                       (reverse)
-                                       (take 45))}
-                   :encoding {:x {:field :name
-                                  :type :ordinal
-                                  :sort {:field "count", :order "descending"}
-                                  :axis {:labelAngle -35}
-                                  :title nil}
-                              :y {:field :count
-                                  :type :quantitative
-                                  :title "Cantidad"}
-                              :color {:value "#5c3696"}}
-                   :layer [{:mark {:type :bar :point true :tooltip true}}]}]])])
+   [:div.my-4.col-auto
+    [:h6.fw-bold.mx-5 "Partidas por país"]
+    (vega/world-map :values (let [country-map (-> (group-by (comp :country :session meta) matches)
+                                                  (update-vals count))]
+                              (map (fn [country]
+                                     (let [count (get country-map country 0)]
+                                       {:id (:id country)
+                                        :name (:name country)
+                                        :tooltip (str (:name country) ": " count)
+                                        :count count}))
+                                   countries/all-countries))
+                    :color-scheme :purples)]])
 
 (defn players [{:keys [games sessions matches]}]
   [:div.row
