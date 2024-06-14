@@ -227,207 +227,93 @@
   [:div.row
 
    [:div.my-4.col-auto
-    [:h6.fw-bold.text-center "Jugadores por día"]
-    [:vega-lite {:width 1024
-                 :height 512
-                 :data {:values (->> sessions
-                                     (data/player-count-by-day)
-                                     (mapcat (fn [{:keys [date new returning]}]
-                                               [{:date date :type :new :count new}
-                                                {:date date :type :returning :count returning}])))}
-                 :encoding {:x {:field :date
-                                :type :ordinal
-                                :axis {:labelAngle -35}
-                                :title "Fecha"}
-                            :y {:field :count
-                                :type :quantitative
-                                :title "Cantidad"}
-                            :color {:field :type
-                                    :title nil}}
-                 :layer [{:mark {:type :bar :point true :tooltip true}}]}]]
+    [:h6.fw-bold.mx-5 "Jugadores por día"]
+    (vega/bar :values (->> sessions
+                           (data/player-count-by-day)
+                           (mapcat (fn [{:keys [date new returning]}]
+                                     [{:date date :type :new :count new}
+                                      {:date date :type :returning :count returning}])))
+              :width 1024
+              :height 512
+              :x {:field :date
+                  :title "Fecha"}
+              :y {:field :count
+                  :title "Cantidad"}
+              :color {:field :type})]
 
    [:div.my-4.row
     [:div.col-auto
      [:h6.fw-bold.text-center "Jugadores nuevos vs recurrentes (TOTAL)"]
-     [:vega-lite {:data {:values (let [pcs (group-by :pc sessions)
-                                       freq-map (->> pcs
-                                                     (map (fn [[pc sessions]]
-                                                            (let [dates (set (map :date sessions))]
-                                                              (count dates))))
-                                                     (frequencies))
-                                       total (count pcs)
-                                       new (get freq-map 1 0)
-                                       returning (reduce + (vals (dissoc freq-map 1)))]
-                                   [{:type :new :count new
-                                     :percent (percent (/ new total))}
-                                    {:type :returning :count returning
-                                     :percent (percent (/ returning total))}])}
-                  :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
-                             :order {:field "count", :type "quantitative", :sort "descending"},
-                             :color {:field "type",
-                                     :title nil,
-                                     :sort {:field "count", :order "descending"}},
-                             :text {:field :percent, :type "nominal"}},
-                  :layer [{:mark {:type "arc", :innerRadius 50, :point true,
-                                  :tooltip {:content "data"}}},
-                          {:mark {:type "text", :radius 75, :fill "black"}}]}]]
+     (vega/arc :values (let [pcs (group-by :pc sessions)
+                             freq-map (->> pcs
+                                           (map (fn [[_pc sessions]]
+                                                  (let [dates (set (map :date sessions))]
+                                                    (count dates))))
+                                           (frequencies))
+                             total (count pcs)
+                             new (get freq-map 1 0)
+                             returning (reduce + (vals (dissoc freq-map 1)))]
+                         [{:type :new :count new
+                           :percent (percent (/ new total))}
+                          {:type :returning :count returning
+                           :percent (percent (/ returning total))}])
+               :color {:field :type})]
 
     [:div.col-auto
-     [:h6.fw-bold.text-center "Jugadores nuevos vs recurrentes (por juego)"]
-     [:vega-lite {:width 512
-                  :height 192
-                  :data {:values (->> sessions
-                                      (group-by :game)
-                                      (mapcat (fn [[game sessions]]
-                                                (let [pcs (group-by :pc sessions)
-                                                      freq-map (->> pcs
-                                                                    (map (fn [[pc sessions]]
-                                                                           (let [dates (set (map :date sessions))]
-                                                                             (count dates))))
-                                                                    (frequencies))
-                                                      total (count pcs)
-                                                      new (get freq-map 1 0)
-                                                      returning (reduce + (vals (dissoc freq-map 1)))]
-                                                  [{:game game :type :new :count new
-                                                    :percent (percent (/ new total))}
-                                                   {:game game :type :returning :count returning
-                                                    :percent (percent (/ returning total))}]))))}
-                  :encoding {:y {:field :game
-                                 :type :nominal
-                                                ;:axis {:labelAngle -35}
-                                 :title nil}
-                             :x {:field :count
-                                 :type :quantitative
-                                 :stack :normalize
-                                 :axis {:format "%"},
-                                 :title "Cantidad"}
-                             :color {:field :type
-                                     :title nil}}
-                  :layer [{:mark {:type :bar :point true
-                                  :tooltip {:content "data"}}}]}]]]
+     [:h6.fw-bold.mx-5 "Jugadores nuevos vs recurrentes (por juego)"]
+     (vega/bar :values (->> sessions
+                            (group-by :game)
+                            (mapcat (fn [[game sessions]]
+                                      (let [pcs (group-by :pc sessions)
+                                            freq-map (->> pcs
+                                                          (map (fn [[_pc sessions]]
+                                                                 (let [dates (set (map :date sessions))]
+                                                                   (count dates))))
+                                                          (frequencies))
+                                            total (count pcs)
+                                            new (get freq-map 1 0)
+                                            returning (reduce + (vals (dissoc freq-map 1)))]
+                                        [{:game game :type :new :count new
+                                          :percent (percent (/ new total))}
+                                         {:game game :type :returning :count returning
+                                          :percent (percent (/ returning total))}]))))
+               :y {:field :game
+                   :type :nominal}
+               :x {:field :count
+                   :type :quantitative
+                   :stack :normalize
+                   :axis {:format "%"}}
+               :color {:field :type}
+               :width 512
+               :height 192)]]
 
    [:div.row.my-4
     [:div.col-auto
      [:h6.fw-bold.text-center "Jugadores por plataforma"]
-     [:vega-lite {:data {:values (let [platforms-by-pc (update-vals (group-by :pc sessions)
-                                                                    (fn [sessions]
-                                                                      (:platform (first sessions))))
-                                       platforms (vals platforms-by-pc)
-                                       freq-map (frequencies platforms)
-                                       total (count platforms)]
-                                   (map (fn [[platform count]]
-                                          {:type platform :count count :percent (percent (/ count total))})
-                                        freq-map))}
-                  :encoding {:theta {:field "count", :type "quantitative", :stack "normalize"},
-                             :order {:field "count", :type "quantitative", :sort "descending"},
-                             :color {:field "type",
-                                     :title nil,
-                                     :sort {:field "count", :order "descending"}},
-                             :text {:field :percent, :type "nominal"}},
-                  :layer [{:mark {:type "arc", :innerRadius 50, :point true,
-                                  :tooltip {:content "data"}}},
-                          {:mark {:type "text", :radius 75, :fill "black"}}]}]]]
+     (vega/arc :values (let [platforms-by-pc (update-vals (group-by :pc sessions)
+                                                          (fn [sessions]
+                                                            (:platform (first sessions))))
+                             platforms (vals platforms-by-pc)
+                             freq-map (frequencies platforms)
+                             total (count platforms)]
+                         (map (fn [[platform count]]
+                                {:type platform :count count :percent (percent (/ count total))})
+                              freq-map))
+               :color {:field :type})]]
 
-   (let [data (let [country-map (-> (group-by :country sessions)
-                                    (update-vals (fn [sessions]
-                                                   (count (set (map :pc sessions))))))]
-                (map (fn [country]
-                       (let [count (get country-map country 0)]
-                         {:id (:id country)
-                          :name (:name country)
-                          :tooltip (str (:name country) ": " count)
-                          :count count}))
-                     countries/all-countries))
-         domain [0 (apply max (map :count data))]]
-     [:div.my-4.col-auto
-      [:h6.fw-bold.text-center "Jugadores por país"]
-      [:vega-lite {:width 1024
-                   :height 512
-                   :autosize "none"
-                   :signals [{:name "tx", :update "width / 2"},
-                             {:name "ty", :update "height / 2"},
-                             {:name "scale",
-                              :value 150,
-                              :on [{:events {:type "wheel", :consume true},
-                                    :update "clamp(scale * pow(1.0005, -event.deltaY * pow(16, event.deltaMode)), 150, 3000)"}]},
-                             {:name "angles",
-                              :value [0, 0],
-                              :on [{:events "pointerdown",
-                                    :update "[rotateX, centerY]"}]},
-                             {:name "cloned",
-                              :value nil,
-                              :on [{:events "pointerdown",
-                                    :update "copy('projection')"}]},
-                             {:name "start",
-                              :value nil,
-                              :on [{:events "pointerdown",
-                                    :update "invert(cloned, xy())"}]},
-                             {:name "drag", :value nil,
-                              :on [{:events "[pointerdown, window:pointerup] > window:pointermove",
-                                    :update "invert(cloned, xy())"}]},
-                             {:name "delta", :value nil,
-                              :on [{:events {:signal "drag"},
-                                    :update "[drag[0] - start[0], start[1] - drag[1]]"}]},
-                             {:name "rotateX", :value 0,
-                              :on [{:events {:signal "delta"},
-                                    :update "angles[0] + delta[0]"}]},
-                             {:name "centerY", :value 0,
-                              :on [{:events {:signal "delta"},
-                                    :update "clamp(angles[1] + delta[1], -60, 60)"}]}]
-                   :projections [{:name "projection",
-                                  :type "mercator",
-                                  :scale {:signal "scale"},
-                                  :rotate [{:signal "rotateX"}, 0, 0],
-                                  :center [0, {:signal "centerY"}],
-                                  :translate [{:signal "tx"}, {:signal "ty"}]}]
-                   :data [{:name "data"
-                           :values data}
-                          {:name "world",
-                           :url "https://vega.github.io/editor/data/world-110m.json",
-                           :format {:type "topojson",
-                                    :feature "countries"}
-                           :transform [{:type :lookup :from "data" :key :id
-                                        :fields [:id] :values [:count :tooltip]}]},
-                          {:name "graticule",
-                           :transform [{:type "graticule"}]}]
-                   :scales [{:name "color"
-                             :type "quantize"
-                             :domain domain
-                             :range {:scheme "purples" :count 7}}]
-                   :legends [{:fill "color"
-                              :title nil
-                              :orient "top-left"}]
-                   :marks [{:type "shape",
-                            :from {:data "graticule"},
-                            :encode {:update {:strokeWidth {:value 1},
-                                              :strokeDash {:value [2, 5]},
-                                              :stroke {:value "#abc"},
-                                              :fill {:value nil}}},
-                            :transform [{:type "geoshape", :projection "projection"}]},
-                           {:type "shape",
-                            :from {:data "world"},
-                            :encode {:update {:strokeWidth {:value 0.5},
-                                              :stroke {:value "#fff"},
-                                              :fill {:scale "color" :field :count},
-                                              :zindex {:value 0}
-                                              :tooltip {:field :tooltip}}},
-                            :transform [{:type "geoshape", :projection "projection"}]}]}]
-
-      [:vega-lite {:height 128
-                   :data {:values (->> data
-                                       (sort-by :count)
-                                       (reverse)
-                                       (take 45))}
-                   :encoding {:x {:field :name
-                                  :type :ordinal
-                                  :sort {:field "count", :order "descending"}
-                                  :axis {:labelAngle -35}
-                                  :title nil}
-                              :y {:field :count
-                                  :type :quantitative
-                                  :title "Cantidad"}
-                              :color {:value "#5c3696"}}
-                   :layer [{:mark {:type :bar :point true :tooltip true}}]}]])])
+   [:div.my-4.col-auto
+    [:h6.fw-bold.text-center "Jugadores por país"]
+    (vega/world-map :values (let [country-map (-> (group-by :country sessions)
+                                                  (update-vals (fn [sessions]
+                                                                 (count (set (map :pc sessions))))))]
+                              (map (fn [country]
+                                     (let [count (get country-map country 0)]
+                                       {:id (:id country)
+                                        :name (:name country)
+                                        :tooltip (str (:name country) ": " count)
+                                        :count count}))
+                                   countries/all-countries))
+                    :color-scheme :teals)]])
 
 (defn- group-related-dudeney-sessions [matches]
   (let [[groups last-group]
@@ -495,52 +381,32 @@
      [:div.row
       [:div.col-auto.my-4
        [:h6.fw-bold.text-center "Movimientos (mediana)"]
-       [:vega-lite.col-auto {:data {:values (get-stats :polygon_rotations)},
-                             :encoding {:x {:field :painting, :type "ordinal"
-                                            :title "Nivel"
-                                            :axis {:labelAngle 0}}
-                                        :y {:field :median
-                                            :type "quantitative"
-                                            :title nil}},
-                             :layer [{:mark {:type "line"
-                                             :point {:size 100}
-                                             :tooltip {:content "data"}}}]}]]
+       (vega/line :values (get-stats :polygon_rotations)
+                  :x {:field :painting
+                      :title "Pintura"
+                      :axis {:labelAngle 0}}
+                  :y {:field :median})]
       [:div.col-auto.my-4
        [:h6.fw-bold.text-center "Cambios de pivot (mediana)"]
-       [:vega-lite.col-auto {:data {:values (get-stats :pivot_changes)},
-                             :encoding {:x {:field :painting, :type "ordinal"
-                                            :title "Pintura"
-                                            :axis {:labelAngle 0}}
-                                        :y {:field :median
-                                            :type "quantitative"
-                                            :title nil}},
-                             :layer [{:mark {:type "line"
-                                             :point {:size 100}
-                                             :tooltip {:content "data"}}}]}]]
+       (vega/line :values (get-stats :pivot_changes)
+                  :x {:field :painting
+                      :title "Pintura"
+                      :axis {:labelAngle 0}}
+                  :y {:field :median})]
       [:div.col-auto.my-4
        [:h6.fw-bold.text-center "Minutos trabajando (mediana)"]
-       [:vega-lite.col-auto {:data {:values (get-stats :m_working)},
-                             :encoding {:x {:field :painting, :type "ordinal"
-                                            :title "Pintura"
-                                            :axis {:labelAngle 0}}
-                                        :y {:field :median
-                                            :type "quantitative"
-                                            :title nil}},
-                             :layer [{:mark {:type "line"
-                                             :point {:size 100}
-                                             :tooltip {:content "data"}}}]}]]
+       (vega/line :values (get-stats :m_working)
+                  :x {:field :painting
+                      :title "Pintura"
+                      :axis {:labelAngle 0}}
+                  :y {:field :median})]
       [:div.col-auto.my-4
        [:h6.fw-bold.text-center "Segundos pensando (mediana)"]
-       [:vega-lite.col-auto {:data {:values (get-stats :s_thinking)},
-                             :encoding {:x {:field :painting, :type "ordinal"
-                                            :title "Pintura"
-                                            :axis {:labelAngle 0}}
-                                        :y {:field :median
-                                            :type "quantitative"
-                                            :title nil}},
-                             :layer [{:mark {:type "line"
-                                             :point {:size 100}
-                                             :tooltip {:content "data"}}}]}]]]]))
+       (vega/line :values (get-stats :s_thinking)
+                  :x {:field :painting
+                      :title "Pintura"
+                      :axis {:labelAngle 0}}
+                  :y {:field :median})]]]))
 
 (defn toggle-btn [text]
   (html [:button.r-button.btn.btn-sm.btn-outline-dark.rounded-pill
