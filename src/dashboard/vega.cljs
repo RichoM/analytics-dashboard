@@ -137,7 +137,12 @@
      height (assoc :height height))])
 
 (def color-schemes {:blues "#4c78a8"
-                    :purples "#5c3696"})
+                    :purples "#5c3696"
+                    :teals "#157576"
+                    :greens "#137c39"
+                    :browns "#b04834"
+                    :oranges "#bf4003"
+                    :reds "#b81419"})
 
 (defn world-map [& {:keys [values color-scheme]}]
   [:div
@@ -224,5 +229,5 @@
                            :y {:field :count
                                :type :quantitative
                                :title "Cantidad"}
-                           :color {:value (color-schemes (or color-scheme :blues))}}
+                           :color {:value (get color-schemes color-scheme "#4c78a8")}}
                 :layer [{:mark {:type :bar :point true :tooltip true}}]}]])
