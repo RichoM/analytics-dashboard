@@ -69,7 +69,7 @@
                                                    color)))
             :layer [{:mark {:type :line
                             :point {:size 100}
-                            :tooltip true}}]}
+                            :tooltip {:content :data}}}]}
      width (assoc :width width)
      height (assoc :height height))])
 
@@ -132,7 +132,7 @@
                         color (assoc :color (merge {:field :color
                                                     :title nil}
                                                    color)))
-            :layer [{:mark {:type :bar :point true :tooltip true}}]}
+            :layer [{:mark {:type :bar :point true :tooltip {:content :data}}}]}
      width (assoc :width width)
      height (assoc :height height))])
 
@@ -231,3 +231,4 @@
                                :title "Cantidad"}
                            :color {:value (get color-schemes color-scheme "#4c78a8")}}
                 :layer [{:mark {:type :bar :point true :tooltip true}}]}]])
+
