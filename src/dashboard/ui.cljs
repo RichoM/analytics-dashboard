@@ -91,10 +91,13 @@
      :q3 (percentiles :p75)
      :upper (percentiles :p91)}))
 
+(defn title [text]
+  [:h6.fw-bold.ps-4.text-wrap text])
+
 (defn sessions-and-matches [{:keys [games sessions matches]}]
   [:div.row
    [:div.my-4.col-auto
-    [:h6.fw-bold.mx-5 "Sesiones y partidas por día"]
+    (title "Sesiones y partidas por día")
     (vega/line :values (data/sessions-by-day sessions matches)
                :width 1024 ; :height 512
                :x {:field :date
@@ -105,7 +108,7 @@
                        :title "Tipo"})]
 
    [:div.my-4.col-auto
-    [:h6.fw-bold.mx-5 "Partidas por sesión (promedio diario)"]
+    (title "Partidas por sesión (promedio diario)")
     (vega/line :values (data/matches-per-session sessions matches)
                :width 1024 ; :height 512
                :x {:field :date
@@ -116,7 +119,7 @@
                        :title "Juego"})]
    [:div.row.my-4
     [:div.col-auto
-     [:h6.fw-bold.mx-5 "Duración de las sesiones"]
+     (title "Duración de las sesiones")
      (vega/boxplot :values (->> sessions
                                 (group-by :game)
                                 (map (fn [[game sessions]]
@@ -128,7 +131,7 @@
                    :color {:field :game :title "Juego"})]
 
     [:div.col-auto
-     [:h6.fw-bold.mx-5 "Duración de las partidas"]
+     (title "Duración de las partidas")
      (vega/boxplot :values (->> matches
                                 (map normalize-mode)
                                 (group-by #(select-keys % [:game :mode]))
@@ -146,7 +149,7 @@
 
    [:div.row.my-4
     [:div.col-4
-     [:h6.fw-bold.mx-5 "Sesiones por plataforma"]
+     (title "Sesiones por plataforma")
      (vega/arc :values (let [platforms (map :platform sessions)
                              freq-map (frequencies platforms)
                              total (count platforms)]
@@ -157,7 +160,7 @@
                :color {:field :type})]
 
     [:div.col-4
-     [:h6.fw-bold.mx-5 "Partidas por plataforma"]
+     (title "Partidas por plataforma")
      (vega/arc :values (let [platforms (map (comp :platform :session meta) matches)
                              freq-map (frequencies platforms)
                              total (count platforms)]
@@ -169,7 +172,7 @@
 
    [:div.row.my-4
     [:div.col-4
-     [:h6.fw-bold.mx-5 "Sesiones por versión"]
+     (title "Sesiones por versión")
      (vega/bar :values (->> sessions
                             (map #(select-keys % [:game :version]))
                             (group-by :game)
@@ -183,7 +186,7 @@
                :width 256 :height 256)]
 
     [:div.col-4
-     [:h6.fw-bold.mx-5 "Partidas por versión"]
+     (title "Partidas por versión")
      (vega/bar :values (->> matches
                             (map (fn [match]
                                    (assoc match :version (-> match meta :session :version))))
@@ -199,7 +202,7 @@
                :width 256 :height 256)]]
 
    [:div.my-4.col-auto
-    [:h6.fw-bold.mx-5 "Sesiones por país"]
+    (title "Sesiones por país")
     (vega/world-map :values (let [country-map (-> (group-by :country sessions)
                                                   (update-vals count))]
                               (map (fn [country]
@@ -211,7 +214,7 @@
                                    countries/all-countries)))]
 
    [:div.my-4.col-auto
-    [:h6.fw-bold.mx-5 "Partidas por país"]
+    (title "Partidas por país")
     (vega/world-map :values (let [country-map (-> (group-by (comp :country :session meta) matches)
                                                   (update-vals count))]
                               (map (fn [country]
@@ -227,7 +230,7 @@
   [:div.row
 
    [:div.my-4.col-auto
-    [:h6.fw-bold.mx-5 "Jugadores por día"]
+    (title "Jugadores por día")
     (vega/bar :values (->> sessions
                            (data/player-count-by-day)
                            (mapcat (fn [{:keys [date new returning]}]
@@ -243,7 +246,7 @@
 
    [:div.my-4.row
     [:div.col-auto
-     [:h6.fw-bold.text-center "Jugadores nuevos vs recurrentes (TOTAL)"]
+     (title "Jugadores nuevos vs recurrentes (TOTAL)")
      (vega/arc :values (let [pcs (group-by :pc sessions)
                              freq-map (->> pcs
                                            (map (fn [[_pc sessions]]
@@ -260,7 +263,7 @@
                :color {:field :type})]
 
     [:div.col-auto
-     [:h6.fw-bold.mx-5 "Jugadores nuevos vs recurrentes (por juego)"]
+     (title "Jugadores nuevos vs recurrentes (por juego)")
      (vega/bar :values (->> sessions
                             (group-by :game)
                             (mapcat (fn [[game sessions]]
@@ -289,7 +292,7 @@
 
    [:div.row.my-4
     [:div.col-auto
-     [:h6.fw-bold.text-center "Jugadores por plataforma"]
+     (title "Jugadores por plataforma")
      (vega/arc :values (let [platforms-by-pc (update-vals (group-by :pc sessions)
                                                           (fn [sessions]
                                                             (:platform (first sessions))))
@@ -302,7 +305,7 @@
                :color {:field :type})]]
 
    [:div.my-4.col-auto
-    [:h6.fw-bold.text-center "Jugadores por país"]
+    (title "Jugadores por país")
     (vega/world-map :values (let [country-map (-> (group-by :country sessions)
                                                   (update-vals (fn [sessions]
                                                                  (count (set (map :pc sessions))))))]
@@ -380,28 +383,28 @@
     [:div.row
      [:div.row
       [:div.col-auto.my-4
-       [:h6.fw-bold.text-center "Movimientos (mediana)"]
+       (title "Movimientos (mediana)")
        (vega/line :values (get-stats :polygon_rotations)
                   :x {:field :painting
                       :title "Pintura"
                       :axis {:labelAngle 0}}
                   :y {:field :median})]
       [:div.col-auto.my-4
-       [:h6.fw-bold.text-center "Cambios de pivot (mediana)"]
+       (title "Cambios de pivot (mediana)")
        (vega/line :values (get-stats :pivot_changes)
                   :x {:field :painting
                       :title "Pintura"
                       :axis {:labelAngle 0}}
                   :y {:field :median})]
       [:div.col-auto.my-4
-       [:h6.fw-bold.text-center "Minutos trabajando (mediana)"]
+       (title "Minutos trabajando (mediana)")
        (vega/line :values (get-stats :m_working)
                   :x {:field :painting
                       :title "Pintura"
                       :axis {:labelAngle 0}}
                   :y {:field :median})]
       [:div.col-auto.my-4
-       [:h6.fw-bold.text-center "Segundos pensando (mediana)"]
+       (title "Segundos pensando (mediana)")
        (vega/line :values (get-stats :s_thinking)
                   :x {:field :painting
                       :title "Pintura"
