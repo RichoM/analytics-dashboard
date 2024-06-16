@@ -338,7 +338,17 @@
     (do
       (def games (-> @!state :data :games))
       (def sessions (-> @!state :data :sessions))
-      (def matches (-> @!state :data :matches))))
+      (def matches (-> @!state :data :matches)))
+    
+    
+    (mapcat (fn [[painting metadata]]
+              (map (fn [value]
+                     {:painting painting :value value})
+                   (get-in metadata [true :polygon_rotations])))
+            data)
+
+    
+    )
 
   (let [dudeney-matches (->> matches
                              (filter (comp #{"Dudeney's Art Gallery"} :game)))
@@ -379,37 +389,44 @@
                                                       :solved-count solved-count
                                                       :unsolved-count unsolved-count
                                                       :total-count (+ solved-count
-                                                                      unsolved-count)))))))))]
+                                                                      unsolved-count)))))))))
+        get-stats (fn [key]
+                    (mapcat (fn [[painting metadata]]
+                              (map (fn [value]
+                                     {:painting painting :value value})
+                                   (get-in metadata [true key])))
+                            data))]
     [:div.row
+
      [:div.row
       [:div.col-auto.my-4
-       (title "Movimientos (mediana)")
-       (vega/line :values (get-stats :polygon_rotations)
-                  :x {:field :painting
-                      :title "Pintura"
-                      :axis {:labelAngle 0}}
-                  :y {:field :median})]
+       (title "Movimientos")
+       (vega/scatter :values (get-stats :polygon_rotations)
+                     :x {:field :painting
+                         :title "Pintura"
+                         :axis {:labelAngle 0}}
+                     :y {:field :value})]
       [:div.col-auto.my-4
-       (title "Cambios de pivot (mediana)")
-       (vega/line :values (get-stats :pivot_changes)
-                  :x {:field :painting
-                      :title "Pintura"
-                      :axis {:labelAngle 0}}
-                  :y {:field :median})]
+       (title "Cambios de pivot")
+       (vega/scatter :values (get-stats :pivot_changes)
+                     :x {:field :painting
+                         :title "Pintura"
+                         :axis {:labelAngle 0}}
+                     :y {:field :value})]
       [:div.col-auto.my-4
-       (title "Minutos trabajando (mediana)")
-       (vega/line :values (get-stats :m_working)
-                  :x {:field :painting
-                      :title "Pintura"
-                      :axis {:labelAngle 0}}
-                  :y {:field :median})]
+       (title "Minutos trabajando")
+       (vega/scatter :values (get-stats :m_working)
+                     :x {:field :painting
+                         :title "Pintura"
+                         :axis {:labelAngle 0}}
+                     :y {:field :value})]
       [:div.col-auto.my-4
-       (title "Segundos pensando (mediana)")
-       (vega/line :values (get-stats :s_thinking)
-                  :x {:field :painting
-                      :title "Pintura"
-                      :axis {:labelAngle 0}}
-                  :y {:field :median})]]]))
+       (title "Segundos pensando")
+       (vega/scatter :values (get-stats :s_thinking)
+                     :x {:field :painting
+                         :title "Pintura"
+                         :axis {:labelAngle 0}}
+                     :y {:field :value})]]]))
 
 (defn toggle-btn [text]
   (html [:button.r-button.btn.btn-sm.btn-outline-dark.rounded-pill

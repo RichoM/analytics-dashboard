@@ -136,6 +136,28 @@
      width (assoc :width width)
      height (assoc :height height))])
 
+(defn scatter [& {:keys [values x y color width height]}]
+  [:vega-lite
+   (cond-> {:data {:values values}
+            :encoding (cond-> {:x {:field :x
+                                   :type :ordinal
+                                   :title nil
+                                   :axis {:labelAngle -35}}
+                               :y {:field :y
+                                   :type :quantitative
+                                   :title nil}}
+                        x (update :x merge x)
+                        y (update :y merge y)
+                        color (assoc :color (merge {:field :color
+                                                    :type :nominal
+                                                    :title nil}
+                                                   color)))
+            :layer [{:mark {:type :point
+                            :point {:size 100}
+                            :tooltip {:content :data}}}]}
+     width (assoc :width width)
+     height (assoc :height height))])
+
 (def color-schemes {:blues "#4c78a8"
                     :purples "#5c3696"
                     :teals "#157576"
