@@ -426,7 +426,62 @@
                      :x {:field :painting
                          :title "Pintura"
                          :axis {:labelAngle 0}}
-                     :y {:field :value})]]]))
+                     :y {:field :value})]]
+
+     [:div.col-10
+      [:table.table.table-sm.table-hover.table-bordered.font-monospace.text-end
+       [:thead
+        [:tr
+         [:th "#"]
+         [:th "TOTAL"]
+         [:th "Resueltos"]
+         [:th "NO resueltos"]
+         [:th "Movimientos" [:br]
+          [:div.row.fw-light
+           [:span.col "Median"]
+           [:span.col "Min"]
+           [:span.col "Max"]]]
+         [:th "Cambios de pivot" [:br]
+          [:div.row.fw-light
+           [:span.col "Median"]
+           [:span.col "Min"]
+           [:span.col "Max"]]]
+         [:th "Minutos trabajando" [:br]
+          [:div.row.fw-light
+           [:span.col "Median"]
+           [:span.col "Min"]
+           [:span.col "Max"]]]
+         [:th "Segundos pensando" [:br]
+          [:div.row.fw-light
+           [:span.col "Median"]
+           [:span.col "Min"]
+           [:span.col "Max"]]]]]
+       [:tbody.text-end
+        (map (fn [[painting metadata]]
+               (let [solved-count (get-in metadata [true :count] 0)
+                     unsolved-count (get-in metadata [false :count] 0)
+                     format-num (fn [n]
+                                  (if (int? n)
+                                    (str n)
+                                    (.toFixed n 2)))
+                     get-stats (fn [key]
+                                 (let [{:keys [median min max]}
+                                       (f/stats (frequencies (get-in metadata [true key]))
+                                                :percentiles [])]
+                                   [:div.row
+                                    [:span.col (format-num median)]
+                                    [:span.col (format-num min)]
+                                    [:span.col (format-num max)]]))]
+                 [:tr
+                  [:th {:scope "row"} (str painting)]
+                  [:td (str (+ solved-count unsolved-count))]
+                  [:td (str solved-count)]
+                  [:td (str unsolved-count)]                  
+                  [:td (get-stats :polygon_rotations)]
+                  [:td (get-stats :pivot_changes)]
+                  [:td (get-stats :m_working)]
+                  [:td (get-stats :s_thinking)]]))
+             data)]]]]))
 
 (defn toggle-btn [text]
   (html [:button.r-button.btn.btn-sm.btn-outline-dark.rounded-pill
