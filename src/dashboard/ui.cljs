@@ -435,7 +435,6 @@
          [:th "#"]
          [:th "TOTAL"]
          [:th "Resueltos"]
-         [:th "NO resueltos"]
          [:th "Movimientos" [:br]
           [:div.row.fw-light
            [:span.col "Median"]
@@ -476,7 +475,6 @@
                   [:th {:scope "row"} (str painting)]
                   [:td (str (+ solved-count unsolved-count))]
                   [:td (str solved-count)]
-                  [:td (str unsolved-count)]                  
                   [:td (get-stats :polygon_rotations)]
                   [:td (get-stats :pivot_changes)]
                   [:td (get-stats :m_working)]
