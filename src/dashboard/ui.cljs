@@ -78,7 +78,7 @@
                        "RACE online")
                      mode))
 
-                 mode)))
+                 (str game " " mode))))
 
 (defn boxplot-stats [data]
   (let [{:keys [percentiles sample-count]}
