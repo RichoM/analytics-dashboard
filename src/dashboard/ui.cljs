@@ -104,22 +104,26 @@
                                  filtered-matches (if (nil? game-name)
                                                     matches
                                                     (->> matches
-                                                         (filter (comp #{game-name} :game))))]
+                                                         (filter (comp #{game-name} :game))))
+                                 countries (->> filtered-sessions
+                                                (map :country_code)
+                                                (set))]
                              [:div.my-4.col-auto
                               (title (or game-name "Todos los juegos seleccionados"))
                               [:div.ps-4
                                (count filtered-matches)
-                               " partidas (desde " 
+                               (if (= 1 (count filtered-matches))
+                                 " partida (desde "
+                                 " partidas (desde ") 
                                (or (:date (first filtered-matches)) "?")
                                " a " 
                                (or (:date (last filtered-matches)) "?") 
                                ")"]
                               [:div.ps-4
-                               (->> filtered-sessions
-                                    (map :country_code)
-                                    (set)
-                                    (count))
-                               " países"]
+                               (count countries)
+                               (if (= 1 (count countries))
+                                 " país"
+                                 " países")]
                               [:div.ps-4 "Cantidad de jugadores únicos: "
                                (->> filtered-sessions
                                     (map :pc)
