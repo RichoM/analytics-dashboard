@@ -36,7 +36,7 @@
                    (gs/Spreadsheet. "1Yj79TCA0I-73SpLtBQztqNNJ8e-ANPYX5TpPLGZmqqI")])
 
 (defn enrich-session
-  [{:keys [date time duration_ms match_count version country_code ip] :as session}]
+  [{:keys [game date time duration_ms match_count version platform country_code ip] :as session}]
   (let [duration-ms (parse-long duration_ms)]
     (map->Session
      (assoc session
@@ -50,7 +50,13 @@
                          (> match_count 0)
                          (not (contains? #{"::1" "127.0.0.1" "localhost"} ip))
                          (not (str/blank? version))
-                         (not (str/includes? version "DEMO")))))))
+                         (not (str/includes? version "DEMO"))
+                         (not (str/includes? platform "Editor"))
+                         
+                         ; HACK(Richo): Discard AstroBrawl v2.1.0 since it's not public yet!
+                         (if (= "astrobrawl" (str/lower-case game))
+                           (not (str/starts-with? version "2.1.0"))
+                           true))))))
 
 (defn get-sessions! [spreadsheet]
   (go
