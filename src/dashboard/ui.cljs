@@ -15,7 +15,7 @@
 
 (defonce !state (atom {:charts {:sessions-and-matches {}
                                 :match-duration {}}
-                       :visible-charts #{:sessions-and-matches}}))
+                       :visible-charts #{:summary}}))
 
 (defn html [element]
   (let [element (vega/html html element)]
@@ -93,6 +93,65 @@
 
 (defn title [text]
   [:h6.fw-bold.ps-4.text-wrap text])
+
+(defn summary [{:keys [games sessions matches]}]
+  (let [summary-by-game (fn [game-name]
+                          [:div.row
+                           (let [filtered-sessions (if (nil? game-name)
+                                                     sessions
+                                                     (->> sessions
+                                                          (filter (comp #{game-name} :game))))
+                                 filtered-matches (if (nil? game-name)
+                                                    matches
+                                                    (->> matches
+                                                         (filter (comp #{game-name} :game))))]
+                             [:div.my-4.col-auto
+                              (title (or game-name "Todos los juegos seleccionados"))
+                              [:div.ps-4
+                               (count filtered-matches)
+                               " partidas (desde " 
+                               (or (:date (first filtered-matches)) "?")
+                               " a " 
+                               (or (:date (last filtered-matches)) "?") 
+                               ")"]
+                              [:div.ps-4
+                               (->> filtered-sessions
+                                    (map :country_code)
+                                    (set)
+                                    (count))
+                               " países"]
+                              [:div.ps-4 "Cantidad de jugadores únicos: "
+                               (->> filtered-sessions
+                                    (map :pc)
+                                    (set)
+                                    (count))]])])]
+    (list (summary-by-game nil)
+          (map summary-by-game games))))
+
+(comment
+  "2718 partidas desde (May 2 - Aug 5 2024) 
+  45 países
+  cantidad de jugadores únicos: ?"
+
+
+  (do
+    (def games (-> @!state :data :games))
+    (def sessions (-> @!state :data :sessions))
+    (def matches (-> @!state :data :matches)))
+
+  (keys (first matches))
+  (set (map :pc filtered-sessions))
+
+  
+  (first sessions)
+  (.toDateString (:datetime (first filtered-matches)))
+
+  (->> matches
+       (filter (comp #{"AstroBrawl"} :game))
+       (filter :valid?)
+       (count))
+  )
+
 
 (defn sessions-and-matches [{:keys [games sessions matches]}]
   [:div.row
@@ -532,6 +591,8 @@
     [:div#side-bar.col-lg-auto
      [:div.sticky-top.py-2
       [:div.d-grid
+       (side-bar-btn :summary "Resumen ejecutivo")]
+      [:div.d-grid.my-2
        (side-bar-btn :sessions-and-matches "Sesiones y partidas")]
       [:div.d-grid.my-2
        (side-bar-btn :players "Jugadores")]
@@ -545,6 +606,8 @@
     [:div#charts.col.w-auto ;overflow-auto.vh-100
      [:div.my-1]
      [:div
+      (when (visible-chart? :summary)
+        (summary (:data @!state)))
       (when (visible-chart? :sessions-and-matches)
         (sessions-and-matches (:data @!state)))
       (when (visible-chart? :players)
@@ -593,6 +656,13 @@
     (def sessions (-> @!state :data :sessions))
     (def matches (-> @!state :data :matches)))
 
+  (->> sessions
+       (filter (comp #{"AstroBrawl"} :game))
+       (group-by :version)
+       (get "2.1.0")
+       count)
+  (remove #(str/includes? % "Editor")
+          (set (map :platform sessions)))
   (count sessions)
   (count matches)
 
