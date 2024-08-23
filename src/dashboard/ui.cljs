@@ -676,16 +676,34 @@
 
 (defn game-checkbox [game-name]
   (let [game-key (game-keyword game-name)
-        checked? (contains? (:game-filters @!state) game-name)]
+        checked? (contains? (-> @!state :filters :games) game-name)]
     (html [:div.form-check.form-switch.text-center.mx-3
            (doto (html [:input.form-check-input {:id game-key :type "checkbox"
                                                  :role "switch" :checked checked?}])
-             (bs/on-click #(swap! !state update :game-filters
+             (bs/on-click #(swap! !state update-in [:filters :games]
                                   (fn [filters]
                                     (if (contains? filters game-name)
                                       (disj filters game-name)
                                       (conj filters game-name))))))
            [:label.form-check-.ebal {:for game-key} game-name]])))
+
+(defn period-filter [selected-period]
+  (let [periods [:last-week :last-fortnight :last-month
+                 :last-quarter :last-year :all-time]
+        period-name {:last-week "Última semana"
+                     :last-fortnight "Última quincena"
+                     :last-month "Último mes"
+                     :last-quarter "Último trimestre"
+                     :last-year "Último año"
+                     :all-time "Todos los tiempos"}]
+    [:div.btn-group-vertical {:role :group}
+     (map (fn [period]
+            (doto (html [:button.btn.btn-sm.btn-outline-dark
+                         {:type "button"}
+                         (period-name period)])
+              (set-pressed! (= selected-period period))
+              (bs/on-click #(swap! !state assoc-in [:filters :period] period))))
+          periods)]))
 
 (defn main-container []
   [:div#main-container.container-fluid
@@ -708,7 +726,10 @@
          (side-bar-btn :astrobrawl "AstroBrawl")])
       [:hr]
       [:div
-       (map game-checkbox (-> @!state :data :games sort))]]]
+       (map game-checkbox (-> @!state :data :games sort))]
+      [:hr]
+      [:div.d-grid.my-2
+       (period-filter (-> @!state :filters :period))]]]
     [:div#charts.col.w-auto ;overflow-auto.vh-100
      [:div.my-1]
      [:div
@@ -734,12 +755,34 @@
                 (:visible-charts new-state))
       (go (oset! scroll :scrollTop 0)))))
 
+(defn subtract-days-from-today [days]
+  (js/Date. (- (js/Date.now)
+               (* 1000 60 60 24 days))))
+
+(defn period-min-date [period]
+  (case period
+    :last-year (subtract-days-from-today 365)
+    :last-quarter (subtract-days-from-today 90)
+    :last-month (subtract-days-from-today 30)
+    :last-fortnight (subtract-days-from-today 14)
+    :last-week (subtract-days-from-today 7)
+    (js/Date. 0)))
+
 (defn update-filters! [{:keys [sessions matches]}]
-  (let [filters (:game-filters @!state)]
+  (let [filtered-games (-> @!state :filters :games)
+        filtered-period (let [min-date (period-min-date (-> @!state :filters :period))
+                              max-date (js/Date.now)]
+                          (fn [datetime]
+                            (and (> datetime min-date)
+                                 (< datetime max-date))))]
     (swap! !state update :data
            assoc
-           :sessions (filter (comp filters :game) sessions)
-           :matches (filter (comp filters :game) matches))))
+           :sessions (->> sessions
+                          (filter (comp filtered-games :game))
+                          (filter (comp filtered-period :datetime)))
+           :matches (->> matches
+                         (filter (comp filtered-games :game))
+                         (filter (comp filtered-period :datetime))))))
 
 (defn initialize-ui! [data]
   (go
@@ -747,13 +790,14 @@
       (js/window.location.replace "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
       (do (add-watch !state ::state-change
                      (fn [_ _ old new]
-                       (if (not= (:game-filters old)
-                                 (:game-filters new))
+                       (if (not= (:filters old)
+                                 (:filters new))
                          (update-filters! data)
                          (update-ui! old new))))
           (swap! !state assoc
                  :data data
-                 :game-filters (:games data))))))
+                 :filters {:games (:games data)
+                           :period :all-time})))))
 
 (defn clear-ui! []
   (clear! (get-element-by-id "content")))
@@ -764,45 +808,26 @@
     (def sessions (-> @!state :data :sessions))
     (def matches (-> @!state :data :matches)))
 
-  (->> sessions
-       (filter (comp #{"AstroBrawl"} :game))
-       (group-by :version)
-       (get "2.1.0")
-       count)
-  (remove #(str/includes? % "Editor")
-          (set (map :platform sessions)))
-  (count sessions)
-  (count matches)
+  #{:all-time :last-year :last-quarter :last-month :last-fortnight :last-week}
 
-  (def metadata (->> matches
-                     (filter (comp #{"Dudeney's Art Gallery"} :game))
-                     (keep :metadata)))
+  (:filters @!state)
+  
+  
+  (do (swap! !state assoc-in [:filters :period] :last-week)
+      nil)
+  (last-days 14)
 
-  (first metadata)
-
-  (update {:a 1} :a + 2)
-
-  (reduce (fn [acc next]
-            (reduce-kv
-             (fn [acc painting
-                  {:keys [attempts pivot_changes polygon_rotations
-                          ms_thinking ms_working is_solved]}]
-               (-> acc
-                   (update-in [painting is_solved :attempts] conj attempts)
-                   (update-in [painting is_solved :pivot_changes] conj pivot_changes)
-                   (update-in [painting is_solved :polygon_rotations] conj polygon_rotations)
-                   (update-in [painting is_solved :ms_thinking] conj ms_thinking)
-                   (update-in [painting is_solved :ms_working] conj ms_working)))
-             acc
-             next))
-          {}
-          (->> matches
-               (filter (comp #{"Dudeney's Art Gallery"} :game))
-               (keep :metadata)))
-
-
-  ()
-  (first sessions)
+  (keys @!state)
   (first matches)
 
-  (:session (meta (first matches))))
+  (def astrobrawl-sessions (filter (comp #{"AstroBrawl"} :game)
+                                   sessions))
+  (def astrobrawl-matches (filter (comp #{"AstroBrawl"} :game)
+                                  matches))
+
+  (count astrobrawl-matches)
+  (count astrobrawl-sessions)
+
+  (/ (count astrobrawl-sessions) (count sessions))
+  (/ (count astrobrawl-matches) (count matches))
+  )
