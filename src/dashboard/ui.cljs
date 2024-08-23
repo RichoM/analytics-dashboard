@@ -7,7 +7,7 @@
             [utils.bootstrap :as bs]
             [utils.async :refer [go-try <?]]
             [utils.frequencies :as f]
-            [utils.core :refer [indexed-by percent seek]]
+            [utils.core :refer [indexed-by percent seek average]]
             [crate.core :as crate]
             [dashboard.vega :as vega]
             [dashboard.data :as data]
@@ -114,10 +114,10 @@
                                (count filtered-matches)
                                (if (= 1 (count filtered-matches))
                                  " partida (desde "
-                                 " partidas (desde ") 
+                                 " partidas (desde ")
                                (or (:date (first filtered-matches)) "?")
-                               " a " 
-                               (or (:date (last filtered-matches)) "?") 
+                               " a "
+                               (or (:date (last filtered-matches)) "?")
                                ")"]
                               [:div.ps-4
                                (count countries)
@@ -146,15 +146,14 @@
   (keys (first matches))
   (set (map :pc filtered-sessions))
 
-  
+
   (first sessions)
   (.toDateString (:datetime (first filtered-matches)))
 
   (->> matches
        (filter (comp #{"AstroBrawl"} :game))
        (filter :valid?)
-       (count))
-  )
+       (count)))
 
 
 (defn sessions-and-matches [{:keys [games sessions matches]}]
@@ -408,16 +407,13 @@
       (def games (-> @!state :data :games))
       (def sessions (-> @!state :data :sessions))
       (def matches (-> @!state :data :matches)))
-    
-    
+
+
     (mapcat (fn [[painting metadata]]
               (map (fn [value]
                      {:painting painting :value value})
                    (get-in metadata [true :polygon_rotations])))
-            data)
-
-    
-    )
+            data))
 
   (let [dudeney-matches (->> matches
                              (filter (comp #{"Dudeney's Art Gallery"} :game)))
@@ -550,6 +546,102 @@
                   [:td (get-stats :s_thinking)]]))
              data)]]]]))
 
+(defn older-version?
+  [[v1 & v1-rest] [v2 & v2-rest]]
+  (cond
+    (nil? v1) (> v2 0)
+    (nil? v2) false
+    (= v1 v2) (older-version? v1-rest v2-rest)
+    :else (< v1 v2)))
+
+(defn parse-version [s]
+  (mapv parse-long (str/split s #"\D")))
+
+(defn match-version [match]
+  (-> match meta :session :version parse-version))
+
+(defn astrobrawl [{:keys [matches]}]
+  (let [pre-2_1-matches (->> matches
+                             (filter (comp #{"AstroBrawl"} :game))
+                             (filter #(older-version? (match-version %) [2 1])))
+        post-2_1-matches (->> matches
+                              (filter (comp #{"AstroBrawl"} :game))
+                              (remove #(older-version? (match-version %) [2 1])))
+        pre-2_1-sessions (->> pre-2_1-matches
+                              (map (comp :session meta))
+                              (set))
+        post-2_1-sessions (->> post-2_1-matches
+                               (map (comp :session meta))
+                               (set))]
+    [:div.row.my-4
+     [:div.col-auto
+      (title "Partidas")
+      (vega/bar :values [{:version "< 2.1" :count (count pre-2_1-matches)}
+                         {:version "> 2.1" :count (count post-2_1-matches)}]
+                :width 150
+                :height 256
+                :x {:field :version
+                    :title "Versión"
+                    :axis {:labelAngle 0}}
+                :y {:field :count
+                    :title "Cantidad"}
+                :color {:field :version})]
+
+     [:div.col-auto
+      (title "Duración de las sesiones")
+      (vega/boxplot :values [(assoc (boxplot-stats (map :duration_m pre-2_1-sessions))
+                                    :version "< 2.1")
+                             (assoc (boxplot-stats (map :duration_m post-2_1-sessions))
+                                    :version "> 2.1")]
+                    :width 150
+                    :height 256
+                    :x {:field :version
+                        :title "Versión"}
+                    :y {:title "Duración (minutos)"}
+                    :color {:field :version})]
+     
+     [:div.col-auto
+      (title "Partidas por sesión (promedio)")
+      (vega/bar :values [{:version "< 2.1" :count (average (mapv :match_count pre-2_1-sessions))}
+                         {:version "> 2.1" :count (average (mapv :match_count post-2_1-sessions))}]
+                :width 150
+                :height 256
+                :x {:field :version
+                    :title "Versión"
+                    :axis {:labelAngle 0}}
+                :y {:field :count
+                    :title "Cantidad"}
+                :color {:field :version})]])
+  )
+
+(comment
+
+  (do
+    (def games (-> @!state :data :games))
+    (def sessions (-> @!state :data :sessions))
+    (def matches (-> @!state :data :matches)))
+
+  (def pre-2_1 (->> matches
+                    (filter (comp #{"AstroBrawl"} :game))
+                    (filter (fn [match]
+                              (older-version? (parse-version (-> match meta :session :version))
+                                              [2 1])))))
+  
+  
+
+  (def post-2_1 (->> matches
+                     (filter (comp #{"AstroBrawl"} :game))
+                     (remove (fn [match]
+                               (older-version? (parse-version (-> match meta :session :version))
+                                               [2 1])))))
+
+  (/ (count post-2_1)
+     (count pre-2_1))
+
+  (-> (first post-2_1)
+      meta :session :version)
+  )
+
 (defn toggle-btn [text]
   (html [:button.r-button.btn.btn-sm.btn-outline-dark.rounded-pill
          {:type "button" :data-bs-toggle "button"}
@@ -610,6 +702,10 @@
                        "Dudeney's Art Gallery")
         [:div.d-grid.my-2
          (side-bar-btn :dudeney "Dudeney")])
+      (when (contains? (-> @!state :data :games)
+                       "AstroBrawl")
+        [:div.d-grid.my-2
+         (side-bar-btn :astrobrawl "AstroBrawl")])
       [:hr]
       [:div
        (map game-checkbox (-> @!state :data :games sort))]]]
@@ -623,7 +719,9 @@
       (when (visible-chart? :players)
         (players (:data @!state)))
       (when (visible-chart? :dudeney)
-        (dudeney (:data @!state)))]]]])
+        (dudeney (:data @!state)))
+      (when (visible-chart? :astrobrawl)
+        (astrobrawl (:data @!state)))]]]])
 
 
 (defn update-ui! [old-state new-state]

@@ -42,3 +42,6 @@
   #?(:clj  (str (format "%.1f" (* 100.0 n)) "%")
      :cljs (str (.toFixed (* 100.0 n) 1) "%")))
 
+(defn average [values]
+  (/ (reduce + values)
+     (count values)))
