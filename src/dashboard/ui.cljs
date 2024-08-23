@@ -164,7 +164,9 @@
     (vega/line :values (data/sessions-by-day sessions matches)
                :width 1024 ; :height 512
                :x {:field :date
-                   :title "Fecha"}
+                   :title "Fecha"
+                   :axis {:labelAngle -35
+                          :labelOverlap true}}
                :y {:field :count
                    :title "Cantidad"}
                :color {:field :type
@@ -175,7 +177,9 @@
     (vega/line :values (data/matches-per-session sessions matches)
                :width 1024 ; :height 512
                :x {:field :date
-                   :title "Fecha"}
+                   :title "Fecha"
+                   :axis {:labelAngle -35
+                          :labelOverlap true}}
                :y {:field :matches-per-session
                    :title "Partidas"}
                :color {:field :game
@@ -302,7 +306,9 @@
               :width 1024
               :height 512
               :x {:field :date
-                  :title "Fecha"}
+                  :title "Fecha"
+                  :axis {:labelAngle -35
+                         :labelOverlap true}}
               :y {:field :count
                   :title "Cantidad"}
               :color {:field :type})]
