@@ -703,6 +703,19 @@
                   [:label.form-check-label {:for id} (str n)]]))
              (range min (inc max)))))
 
+(defn local-online-filter []
+  (cons [:div "Tipo de partida:"]
+        (map (fn [n]
+               (let [name (str/replace (str n) #"\W+" "")
+                     id (str name "_checkbox")]
+                 [:div.form-check.form-check-inline
+                  (doto (html [:input.form-check-input
+                               {:id id :type "checkbox"
+                                :checked (-> @!state :filters n)}])
+                    (bs/on-click #(swap! !state update-in [:filters n] not)))
+                  [:label.form-check-label {:for id} (str/capitalize name)]]))
+             [:local? :online?])))
+
 (defn period-filter [selected-period]
   (let [periods [:last-week :last-fortnight :last-month
                  :last-quarter :last-year :all-time]
@@ -746,6 +759,9 @@
       [:hr]
       [:div.text-center
        (players-filter (-> @!state :filters :players))]
+      [:hr]
+      [:div.text-center
+       (local-online-filter)]
       [:hr]
       [:div.d-grid.my-2
        (period-filter (-> @!state :filters :period))]]]
@@ -795,10 +811,18 @@
                    (and (> datetime min-date)
                         (< datetime max-date))))
         players (-> @!state :filters :players :selected)
+        local? (-> @!state :filters :local?)
+        online? (-> @!state :filters :online?)
         filtered-matches (->> matches
                               (filter (comp games :game))
                               (filter (comp period :datetime))
                               (filter (comp players :player_count))
+                              (filter (fn [match]
+                                        (case [local? online?]
+                                          [false false] false
+                                          [false true] (not (:local? match))
+                                          [true false] (:local? match)
+                                          [true true] true)))
                               (vec))
         filtered-sessions (let [valid-sessions (->> filtered-matches
                                                     (map :session)
@@ -830,7 +854,9 @@
                                                        (set))]
                                       {:selected players
                                        :min 1
-                                       :max (apply max players)})})))))
+                                       :max (apply max players)})
+                           :local? true
+                           :online? true})))))
 
 (defn clear-ui! []
   (clear! (get-element-by-id "content")))
