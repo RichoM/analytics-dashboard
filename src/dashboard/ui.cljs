@@ -154,31 +154,7 @@
   (list (summary-by-game sessions matches nil)
         (map (partial summary-by-game sessions matches) games)))
 
-(comment
-  "2718 partidas desde (May 2 - Aug 5 2024) 
-  45 países
-  cantidad de jugadores únicos: ?"
-
-
-  (do
-    (def games (-> @!state :data :games))
-    (def sessions (-> @!state :data :sessions))
-    (def matches (-> @!state :data :matches)))
-
-  (keys (first matches))
-  (set (map :pc filtered-sessions))
-
-
-  (first sessions)
-  (.toDateString (:datetime (first filtered-matches)))
-
-  (->> matches
-       (filter (comp #{"AstroBrawl"} :game))
-       (filter :valid?)
-       (count)))
-
-
-(defn sessions-and-matches [{:keys [games sessions matches]}]
+(defn sessions-and-matches [{:keys [sessions matches]}]
   [:div.row
    [:div.my-4.col-auto
     (title "Sesiones y partidas por día")
@@ -424,19 +400,6 @@
          (keep :metadata match-group)))
 
 (defn dudeney [{:keys [games sessions matches]}]
-  (comment
-    (do
-      (def games (-> @!state :data :games))
-      (def sessions (-> @!state :data :sessions))
-      (def matches (-> @!state :data :matches)))
-
-
-    (mapcat (fn [[painting metadata]]
-              (map (fn [value]
-                     {:painting painting :value value})
-                   (get-in metadata [true :polygon_rotations])))
-            data))
-
   (let [dudeney-matches (->> matches
                              (filter (comp #{"Dudeney's Art Gallery"} :game)))
         matches-by-pc (group-by (comp :pc :session meta) dudeney-matches)
@@ -464,19 +427,6 @@
                  next))
               {}
               accumulated-metadata)
-        get-stats (memoize (fn [key]
-                             (->> data
-                                  (map (fn [[painting stats]]
-                                         (let [solved-count (get-in stats [true :count])
-                                               unsolved-count (get-in stats [false :count])]
-                                           (-> (f/stats (frequencies (get-in stats [true key]))
-                                                        :percentiles [])
-                                               (dissoc :percentiles)
-                                               (assoc :painting painting
-                                                      :solved-count solved-count
-                                                      :unsolved-count unsolved-count
-                                                      :total-count (+ solved-count
-                                                                      unsolved-count)))))))))
         get-stats (fn [key]
                     (mapcat (fn [[painting metadata]]
                               (map (fn [value]
@@ -634,33 +584,6 @@
                 :y {:field :count
                     :title "Cantidad"}
                 :color {:field :version})]]))
-
-(comment
-
-  (do
-    (def games (-> @!state :data :games))
-    (def sessions (-> @!state :data :sessions))
-    (def matches (-> @!state :data :matches)))
-
-  (def pre-2_1 (->> matches
-                    (filter (comp #{"AstroBrawl"} :game))
-                    (filter (fn [match]
-                              (older-version? (parse-version (-> match meta :session :version))
-                                              [2 1])))))
-
-
-
-  (def post-2_1 (->> matches
-                     (filter (comp #{"AstroBrawl"} :game))
-                     (remove (fn [match]
-                               (older-version? (parse-version (-> match meta :session :version))
-                                               [2 1])))))
-
-  (/ (count post-2_1)
-     (count pre-2_1))
-
-  (-> (first post-2_1)
-      meta :session :version))
 
 (defn toggle-btn [text]
   (html [:button.r-button.btn.btn-sm.btn-outline-dark.rounded-pill
@@ -887,11 +810,6 @@
     (def games (-> @!state :data :games))
     (def sessions (-> @!state :data :sessions))
     (def matches (-> @!state :data :matches)))
-
-
-  (->> (data/group-by-day matches)
-       (filter (fn [[_ sessions]]
-                 (empty? sessions))))
 
   (keys @!state)
   (first matches)
