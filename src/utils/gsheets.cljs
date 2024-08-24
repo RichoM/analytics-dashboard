@@ -48,13 +48,12 @@
              (if (some? (oget res :?error))
                (a/put! c (promise-error res))
                (a/close! c))))
-    (if (nil? (ocall! js/gapi :client.getToken))
-      (ocall! token-client :requestAccessToken #js {:prompt "consent"})
-      (ocall! token-client :requestAccessToken #js {:prompt ""}))
+    (ocall! token-client :requestAccessToken #js {:prompt ""})
     c))
 
 (defn authorize! [credentials]
   (go-try 
+   
    (when (nil? @!token-client)
      (println "1" (<? (load-gapi-client!)))
      (println "2" (<? (init-gapi-client!)))
