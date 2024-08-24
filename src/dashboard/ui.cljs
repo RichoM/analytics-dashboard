@@ -687,6 +687,22 @@
                                       (conj filters game-name))))))
            [:label.form-check-.ebal {:for game-key} game-name]])))
 
+(defn players-filter [{:keys [selected min max]}]
+  (cons [:div "Jugadores:"]
+        (map (fn [n]
+               (let [id (str "players_" n)]
+                 [:div.form-check.form-check-inline
+                  (doto (html [:input.form-check-input
+                               {:id id :type "checkbox"
+                                :checked (contains? selected n)}])
+                    (bs/on-click #(swap! !state update-in [:filters :players :selected]
+                                         (fn [selected]
+                                           (if (contains? selected n)
+                                             (disj selected n)
+                                             (conj selected n))))))
+                  [:label.form-check-label {:for id} (str n)]]))
+             (range min (inc max)))))
+
 (defn period-filter [selected-period]
   (let [periods [:last-week :last-fortnight :last-month
                  :last-quarter :last-year :all-time]
@@ -727,6 +743,9 @@
       [:hr]
       [:div
        (map game-checkbox (-> @!state :data :games sort))]
+      [:hr]
+      [:div.text-center
+       (players-filter (-> @!state :filters :players))]
       [:hr]
       [:div.d-grid.my-2
        (period-filter (-> @!state :filters :period))]]]
@@ -769,20 +788,28 @@
     (js/Date. 0)))
 
 (defn update-filters! [{:keys [sessions matches]}]
-  (let [filtered-games (-> @!state :filters :games)
-        filtered-period (let [min-date (period-min-date (-> @!state :filters :period))
-                              max-date (js/Date.now)]
-                          (fn [datetime]
-                            (and (> datetime min-date)
-                                 (< datetime max-date))))]
+  (let [games (-> @!state :filters :games)
+        period (let [min-date (period-min-date (-> @!state :filters :period))
+                     max-date (js/Date.now)]
+                 (fn [datetime]
+                   (and (> datetime min-date)
+                        (< datetime max-date))))
+        players (-> @!state :filters :players :selected)
+        filtered-matches (->> matches
+                              (filter (comp games :game))
+                              (filter (comp period :datetime))
+                              (filter (comp players :player_count))
+                              (vec))
+        filtered-sessions (let [valid-sessions (->> filtered-matches
+                                                    (map :session)
+                                                    (set))]
+                            (->> sessions
+                                 (filter (comp valid-sessions :id))
+                                 (vec)))]
     (swap! !state update :data
            assoc
-           :sessions (->> sessions
-                          (filter (comp filtered-games :game))
-                          (filter (comp filtered-period :datetime)))
-           :matches (->> matches
-                         (filter (comp filtered-games :game))
-                         (filter (comp filtered-period :datetime))))))
+           :sessions filtered-sessions
+           :matches filtered-matches)))
 
 (defn initialize-ui! [data]
   (go
@@ -797,28 +824,29 @@
           (swap! !state assoc
                  :data data
                  :filters {:games (:games data)
-                           :period :all-time})))))
+                           :period :all-time
+                           :players (let [players (->> (:matches data)
+                                                       (map :player_count)
+                                                       (set))]
+                                      {:selected players
+                                       :min 1
+                                       :max (apply max players)})})))))
 
 (defn clear-ui! []
   (clear! (get-element-by-id "content")))
 
 (comment
+  
   (do
     (def games (-> @!state :data :games))
     (def sessions (-> @!state :data :sessions))
     (def matches (-> @!state :data :matches)))
 
-  #{:all-time :last-year :last-quarter :last-month :last-fortnight :last-week}
-
-  (:filters @!state)
   
-  
-  (do (swap! !state assoc-in [:filters :period] :last-week)
-      nil)
-  (last-days 14)
 
   (keys @!state)
   (first matches)
+  (first sessions)
 
   (def astrobrawl-sessions (filter (comp #{"AstroBrawl"} :game)
                                    sessions))
