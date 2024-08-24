@@ -94,43 +94,65 @@
 (defn title [text]
   [:h6.fw-bold.ps-4.text-wrap text])
 
+(defn summary-by-game [sessions matches game-name]
+  [:div.row
+   (let [filtered-sessions (if (nil? game-name)
+                             sessions
+                             (->> sessions
+                                  (filter (comp #{game-name} :game))))
+         filtered-matches (if (nil? game-name)
+                            matches
+                            (->> matches
+                                 (filter (comp #{game-name} :game))))
+         sessions-by-day (data/group-by-day filtered-sessions)
+         matches-by-day (data/group-by-day filtered-matches)
+         countries (->> filtered-sessions
+                        (map :country_code)
+                        (set))
+         unique-players (->> filtered-sessions
+                             (map :pc)
+                             (set)
+                             (count))]
+     [:div.my-4.col-auto
+      (title (or game-name "Todos los juegos seleccionados"))
+      [:div.ps-4
+       (count filtered-matches)
+       (if (= 1 (count filtered-matches))
+         " partida (desde "
+         " partidas (desde ")
+       (or (:date (first filtered-matches)) "?")
+       " a "
+       (or (:date (last filtered-matches)) "?")
+       ")"]
+      [:div.ps-4
+       (count countries)
+       (if (= 1 (count countries))
+         " país"
+         " países")]
+      [:div.ps-4 unique-players
+       (if (= 1 unique-players)
+         " jugador único"
+         " jugadores únicos")]
+      [:div.ps-4 (.toFixed (->> sessions-by-day
+                                (map (comp count second))
+                                (average))
+                           2)
+       " sesiones diarias (promedio)"]
+      [:div.ps-4 (.toFixed (->> matches-by-day
+                                (map (comp count second))
+                                (average))
+                           2)
+       " partidas diarias (promedio)"]
+      [:div.ps-4 "Duración de la sesión: "
+       (.toFixed (->> filtered-sessions
+                      (map :duration_m)
+                      (average))
+                 2)
+       " minutos (promedio)"]])])
+
 (defn summary [{:keys [games sessions matches]}]
-  (let [summary-by-game (fn [game-name]
-                          [:div.row
-                           (let [filtered-sessions (if (nil? game-name)
-                                                     sessions
-                                                     (->> sessions
-                                                          (filter (comp #{game-name} :game))))
-                                 filtered-matches (if (nil? game-name)
-                                                    matches
-                                                    (->> matches
-                                                         (filter (comp #{game-name} :game))))
-                                 countries (->> filtered-sessions
-                                                (map :country_code)
-                                                (set))]
-                             [:div.my-4.col-auto
-                              (title (or game-name "Todos los juegos seleccionados"))
-                              [:div.ps-4
-                               (count filtered-matches)
-                               (if (= 1 (count filtered-matches))
-                                 " partida (desde "
-                                 " partidas (desde ")
-                               (or (:date (first filtered-matches)) "?")
-                               " a "
-                               (or (:date (last filtered-matches)) "?")
-                               ")"]
-                              [:div.ps-4
-                               (count countries)
-                               (if (= 1 (count countries))
-                                 " país"
-                                 " países")]
-                              [:div.ps-4 "Cantidad de jugadores únicos: "
-                               (->> filtered-sessions
-                                    (map :pc)
-                                    (set)
-                                    (count))]])])]
-    (list (summary-by-game nil)
-          (map summary-by-game games))))
+  (list (summary-by-game sessions matches nil)
+        (map (partial summary-by-game sessions matches) games)))
 
 (comment
   "2718 partidas desde (May 2 - Aug 5 2024) 
@@ -599,7 +621,7 @@
                         :title "Versión"}
                     :y {:title "Duración (minutos)"}
                     :color {:field :version})]
-     
+
      [:div.col-auto
       (title "Partidas por sesión (promedio)")
       (vega/bar :values [{:version "< 2.1" :count (average (mapv :match_count pre-2_1-sessions))}
@@ -611,8 +633,7 @@
                     :axis {:labelAngle 0}}
                 :y {:field :count
                     :title "Cantidad"}
-                :color {:field :version})]])
-  )
+                :color {:field :version})]]))
 
 (comment
 
@@ -626,8 +647,8 @@
                     (filter (fn [match]
                               (older-version? (parse-version (-> match meta :session :version))
                                               [2 1])))))
-  
-  
+
+
 
   (def post-2_1 (->> matches
                      (filter (comp #{"AstroBrawl"} :game))
@@ -639,8 +660,7 @@
      (count pre-2_1))
 
   (-> (first post-2_1)
-      meta :session :version)
-  )
+      meta :session :version))
 
 (defn toggle-btn [text]
   (html [:button.r-button.btn.btn-sm.btn-outline-dark.rounded-pill
@@ -862,13 +882,16 @@
   (clear! (get-element-by-id "content")))
 
 (comment
-  
+
   (do
     (def games (-> @!state :data :games))
     (def sessions (-> @!state :data :sessions))
     (def matches (-> @!state :data :matches)))
 
-  
+
+  (->> (data/group-by-day matches)
+       (filter (fn [[_ sessions]]
+                 (empty? sessions))))
 
   (keys @!state)
   (first matches)
@@ -883,5 +906,4 @@
   (count astrobrawl-sessions)
 
   (/ (count astrobrawl-sessions) (count sessions))
-  (/ (count astrobrawl-matches) (count matches))
-  )
+  (/ (count astrobrawl-matches) (count matches)))
