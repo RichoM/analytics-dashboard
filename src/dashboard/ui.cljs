@@ -81,17 +81,18 @@
                  (str game " " mode))))
 
 (defn boxplot-stats [data]
-  (let [{:keys [percentiles sample-count]}
+  (let [{:keys [percentiles sample-count mean]}
         (f/stats (frequencies data)
                  :percentiles [9 25 50 75 91])]
     {:count sample-count
+     :mean mean
      :lower (percentiles :p9)
      :q1 (percentiles :p25)
      :median (percentiles :p50)
      :q3 (percentiles :p75)
      :upper (percentiles :p91)}))
 
-(defn title [text]
+(defn title [& text]
   [:h6.fw-bold.ps-4.text-wrap text])
 
 (defn summary-by-game [sessions matches game-name]
@@ -291,6 +292,10 @@
                                    countries/all-countries))
                     :color-scheme :purples)]])
 
+(def recurrentes 
+  [:abbr {:title "Abrieron el juego en 2 días distintos"}
+   "recurrentes"])
+
 (defn players [{:keys [games sessions matches]}]
   [:div.row
 
@@ -313,7 +318,7 @@
 
    [:div.my-4.row
     [:div.col-auto
-     (title "Jugadores nuevos vs recurrentes (TOTAL)")
+     (title "Jugadores nuevos vs " recurrentes " (TOTAL)")
      (vega/arc :values (let [pcs (group-by :pc sessions)
                              freq-map (->> pcs
                                            (map (fn [[_pc sessions]]
@@ -330,7 +335,7 @@
                :color {:field :type})]
 
     [:div.col-auto
-     (title "Jugadores nuevos vs recurrentes (por juego)")
+     (title "Jugadores nuevos vs " recurrentes " (por juego)")
      (vega/bar :values (->> sessions
                             (group-by :game)
                             (mapcat (fn [[game sessions]]
@@ -369,7 +374,127 @@
                          (map (fn [[platform count]]
                                 {:type platform :count count :percent (percent (/ count total))})
                               freq-map))
-               :color {:field :type})]]
+               :color {:field :type})]
+
+    [:div.col-auto
+     (title "Jugadores por juego")
+     (vega/arc :values (let [games-by-pc (update-vals (group-by :pc sessions)
+                                                      (fn [sessions]
+                                                        (let [games (set (map :game sessions))]
+                                                          (assert (= 1 (count games))
+                                                                  "Same pc for multiple games!")
+                                                          (first games))))
+                             games (vals games-by-pc)
+                             freq-map (frequencies games)
+                             total (count games)]
+                         (map (fn [[game count]]
+                                {:game game :count count :percent (percent (/ count total))})
+                              freq-map))
+               :color {:field :game})]]
+
+   [:div.row.my-4
+    [:div.col-auto
+     (title "Sesiones por jugador")
+     (vega/bar :values (let [freq (->> (group-by :pc sessions)
+                                       (map (fn [[pc sessions]]
+                                              (count sessions)))
+                                       (frequencies))
+                             max (apply max (keys freq))]
+                         (map (fn [session-count]
+                                {:session-count session-count
+                                 :player-count (get freq session-count 0)})
+                              (range 1 (inc max))))
+               :x {:field :session-count
+                   :title "Sesiones"
+                   :type :nominal
+                   :axis {:labelAngle 0}}
+               :y {:field :player-count
+                   :title "Jugadores"
+                   ;:scale {:type :sqrt}
+                   })]]
+
+   [:div.row.my-4
+    [:div.col-auto
+     (title "Sesiones por jugador (sólo " recurrentes ")")
+     (vega/bar :values (let [freq (->> (group-by :pc sessions)
+                                       (remove (fn [[_ sessions]]
+                                                 (= 1 (count (set (map :date sessions))))))
+                                       (map (fn [[pc sessions]]
+                                              (count sessions)))
+                                       (frequencies))
+                             max (apply max (keys freq))]
+                         (map (fn [session-count]
+                                {:session-count session-count
+                                 :player-count (get freq session-count 0)})
+                              (range 2 (inc max))))
+               :x {:field :session-count
+                   :title "Sesiones"
+                   :type :nominal
+                   :axis {:labelAngle 0}}
+               :y {:field :player-count
+                   :title "Jugadores"
+                   ;:scale {:type :sqrt}
+                   })]]
+
+
+   [:div.row.my-4
+    [:div.col-auto
+     (title "Tiempo de juego (promedio)")
+     (vega/bar :values (->> sessions
+                            (group-by :game)
+                            (map (fn [[game sessions]]
+                                   {:play-time (->> (group-by :pc sessions)
+                                                    (map (fn [[pc sessions]]
+                                                           (reduce + (map :duration_m sessions))))
+                                                    (average))
+                                    :game game})))
+
+               :width 150
+               :height 256
+               :x {:field :game
+                   :type :nominal
+                   :title "Juego"}
+               :y {:field :play-time
+                   :title "Duración (minutos)"}
+               :color {:field :game})]
+    
+    [:div.col-auto
+     (title "Tiempo de juego")
+     (vega/boxplot :values (->> sessions
+                                (group-by :game)
+                                (map (fn [[game sessions]]
+                                       (assoc (->> (group-by :pc sessions)
+                                                   (map (fn [[pc sessions]]
+                                                          (reduce + (map :duration_m sessions))))
+                                                   (boxplot-stats))
+                                              :game game))))
+
+                   :width 150
+                   :height 256
+                   :x {:field :game
+                       :title "Juego"}
+                   :y {:title "Duración (minutos)"}
+                   :color {:field :game})]
+
+    [:div.col-auto
+     (title "Tiempo de juego (sólo " recurrentes ")")
+     (vega/boxplot :values (->> sessions
+                                (group-by :game)
+                                (map (fn [[game sessions]]
+                                       (assoc (->> (group-by :pc sessions)
+                                                   (remove (fn [[_ sessions]]
+                                                             (= 1 (count (set (map :date sessions))))))
+                                                   (map (fn [[pc sessions]]
+                                                          (reduce + (map :duration_m sessions))))
+                                                   (boxplot-stats))
+                                              :game game))))
+
+                   :width 150
+                   :height 256
+                   :x {:field :game
+                       :title "Juego"}
+                   :y {:title "Duración (minutos)"}
+                   :color {:field :game})]]
 
    [:div.my-4.col-auto
     (title "Jugadores por país")
@@ -811,6 +936,32 @@
     (def games (-> @!state :data :games))
     (def sessions (-> @!state :data :sessions))
     (def matches (-> @!state :data :matches)))
+  
+  (-> (first matches) meta :session :pc)
+
+  
+
+  (->> (group-by :pc sessions)
+       (map (fn [[pc sessions]])))
+
+  (->> sessions
+       (filter (comp #{"cd7ee4e9-f3fe-4664-a280-2a2977b40a44"} :pc)))
+
+
+  (->> (group-by :pc sessions)
+       (map (fn [[pc sessions]]
+              {:pc pc :count (count sessions)
+               ;:play-time (reduce + (map :duration_m sessions))
+               ;:sessions sessions
+               }))
+       (sort-by - :count)
+       (take 20))
+
+       ;(frequencies)
+       ;(boxplot-stats))
+
+
+  (let [users (set (map :pc sessions))])
 
   (keys @!state)
   (first matches)
@@ -825,4 +976,5 @@
   (count astrobrawl-sessions)
 
   (/ (count astrobrawl-sessions) (count sessions))
-  (/ (count astrobrawl-matches) (count matches)))
+  (/ (count astrobrawl-matches) (count matches))
+  )
