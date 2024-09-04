@@ -785,6 +785,22 @@
                   [:label.form-check-label {:for id} (str/capitalize name)]]))
              [:local? :online?])))
 
+(defn platform-filter [{:keys [available selected]}]
+  (cons [:div "Plataforma:"]
+        (map (fn [platform]
+               (let [id (str "platform_" platform "_checkbox")]
+                 [:div.form-check.form-check-inline
+                  (doto (html [:input.form-check-input
+                               {:id id :type "checkbox"
+                                :checked (contains? selected platform)}])
+                    (bs/on-click #(swap! !state update-in [:filters :platforms :selected]
+                                         (fn [selected]
+                                           (if (contains? selected platform)
+                                             (disj selected platform)
+                                             (conj selected platform))))))
+                  [:label.form-check-label {:for id} platform]]))
+             available)))
+
 (defn period-filter [selected-period]
   (let [periods [:last-week :last-fortnight :last-month
                  :last-quarter :last-year :all-time]
@@ -831,6 +847,9 @@
       [:hr]
       [:div.text-center
        (local-online-filter)]
+      [:hr]
+      [:div.text-center
+       (platform-filter (-> @!state :filters :platforms))]
       [:hr]
       [:div.d-grid.my-2
        (period-filter (-> @!state :filters :period))]]]
@@ -880,6 +899,7 @@
                    (and (> datetime min-date)
                         (< datetime max-date))))
         players (-> @!state :filters :players :selected)
+        platforms (-> @!state :filters :platforms :selected)
         local? (-> @!state :filters :local?)
         online? (-> @!state :filters :online?)
         filtered-matches (->> matches
@@ -892,6 +912,9 @@
                                           [false true] (not (:local? match))
                                           [true false] (:local? match)
                                           [true true] true)))
+                              (filter (fn [match]
+                                        (when-let [session (-> match meta :session)]
+                                          (platforms (:platform session)))))
                               (vec))
         filtered-sessions (let [valid-sessions (->> filtered-matches
                                                     (map :session)
@@ -918,6 +941,11 @@
                  :data data
                  :filters {:games (:games data)
                            :period :all-time
+                           :platforms (let [platforms (->> (:sessions data)
+                                                           (map :platform)
+                                                           (set))]
+                                        {:available platforms
+                                         :selected platforms})
                            :players (let [players (->> (:matches data)
                                                        (map :player_count)
                                                        (set))]
@@ -936,10 +964,10 @@
     (def games (-> @!state :data :games))
     (def sessions (-> @!state :data :sessions))
     (def matches (-> @!state :data :matches)))
-  
-  (-> (first matches) meta :session :pc)
 
-  
+  (-> (first matches) meta :session :pc)
+  (set (map :platform sessions))
+  (first matches)
 
   (->> (group-by :pc sessions)
        (map (fn [[pc sessions]])))
