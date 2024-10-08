@@ -888,41 +888,49 @@
     :last-week (subtract-days-from-today 7)
     (js/Date. 0)))
 
-(defn update-filters! [{:keys [sessions matches]}]
-  (let [games (-> @!state :filters :games)
-        period (let [min-date (period-min-date (-> @!state :filters :period))
-                     max-date (js/Date.now)]
-                 (fn [datetime]
-                   (and (> datetime min-date)
-                        (< datetime max-date))))
-        players (-> @!state :filters :players :selected)
-        platforms (-> @!state :filters :platforms :selected)
-        local? (-> @!state :filters :local?)
-        online? (-> @!state :filters :online?)
-        filtered-matches (->> matches
-                              (filter (comp games :game))
-                              (filter (comp period :datetime))
-                              (filter (comp players :player_count))
-                              (filter (fn [match]
-                                        (case [local? online?]
-                                          [false false] false
-                                          [false true] (not (:local? match))
-                                          [true false] (:local? match)
-                                          [true true] true)))
-                              (filter (fn [match]
-                                        (when-let [session (-> match meta :session)]
-                                          (platforms (:platform session)))))
-                              (vec))
-        filtered-sessions (let [valid-sessions (->> filtered-matches
-                                                    (map :session)
-                                                    (set))]
-                            (->> sessions
-                                 (filter (comp valid-sessions :id))
-                                 (vec)))]
+(def filtered-data 
+  (memoize 
+   (fn [filters {:keys [sessions matches]}]
+     (let [games (:games filters)
+           period (let [min-date (period-min-date (:period filters))
+                        max-date (js/Date.now)]
+                    (fn [datetime]
+                      (and (> datetime min-date)
+                           (< datetime max-date))))
+           players (-> filters :players :selected)
+           platforms (-> filters :platforms :selected)
+           local? (-> filters :local?)
+           online? (-> filters :online?)
+           filtered-matches (->> matches
+                                 (filter (comp games :game))
+                                 (filter (comp period :datetime))
+                                 (filter (comp players :player_count))
+                                 (filter (fn [match]
+                                           (case [local? online?]
+                                             [false false] false
+                                             [false true] (not (:local? match))
+                                             [true false] (:local? match)
+                                             [true true] true)))
+                                 (filter (fn [match]
+                                           (when-let [session (-> match meta :session)]
+                                             (platforms (:platform session)))))
+                                 (vec))
+           filtered-sessions (let [valid-sessions (->> filtered-matches
+                                                       (map :session)
+                                                       (set))]
+                               (->> sessions
+                                    (filter (comp valid-sessions :id))
+                                    (vec)))]
+       {:sessions filtered-sessions
+        :matches filtered-matches}))))
+
+(defn update-filters! [data]
+  (let [{:keys [sessions matches]} 
+        (filtered-data (:filters @!state) data)]
     (swap! !state update :data
            assoc
-           :sessions filtered-sessions
-           :matches filtered-matches)))
+           :sessions sessions
+           :matches matches)))
 
 (def ui 
   [:div#main-container.container-fluid
