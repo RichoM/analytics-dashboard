@@ -819,8 +819,7 @@
               (bs/on-click #(swap! !state assoc-in [:filters :period] period))))
           periods)]))
 
-(defn update-ui!
-  [old-state {:keys [data filters] :as new-state}]
+(defn update-ui! [{:keys [data filters]}]
   (vega/finalize!)
   (doto (get-element-by-id "filters")
     (clear!)
@@ -834,12 +833,10 @@
                (side-bar-btn :sessions-and-matches "Sesiones y partidas")]
               [:div.d-grid.my-2
                (side-bar-btn :players "Jugadores")]
-              (when (contains? (:games data)
-                               "Dudeney's Art Gallery")
+              (when (contains? (:games data) "Dudeney's Art Gallery")
                 [:div.d-grid.my-2
                  (side-bar-btn :dudeney "Dudeney")])
-              (when (contains? (:games data)
-                               "AstroBrawl")
+              (when (contains? (:games data) "AstroBrawl")
                 [:div.d-grid.my-2
                  (side-bar-btn :astrobrawl "AstroBrawl")])
               [:hr]
@@ -949,8 +946,8 @@
                      (fn [_ _ old new]
                        (if (not= (:filters old)
                                  (:filters new))
-                         (time (update-filters! data))
-                         (update-ui! old new))))
+                         (update-filters! data)
+                         (update-ui! new))))
           (swap! !state assoc
                  :data data
                  :filters {:games (:games data)
@@ -980,6 +977,8 @@
     (def sessions (-> @!state :data :sessions))
     (def matches (-> @!state :data :matches)))
 
+  
+  (type (-> @!state :data :matches))
   (-> (first matches) meta :session :pc)
   (set (map :platform sessions))
   (first matches)
