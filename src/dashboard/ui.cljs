@@ -819,60 +819,57 @@
               (bs/on-click #(swap! !state assoc-in [:filters :period] period))))
           periods)]))
 
-(defn main-container []
-  [:div#main-container.container-fluid
-   [:div.row
-    [:div#side-bar.col-lg-auto
-     [:div.sticky-top.py-2
-      [:div.d-grid
-       (side-bar-btn :summary "Resumen ejecutivo")]
-      [:div.d-grid.my-2
-       (side-bar-btn :sessions-and-matches "Sesiones y partidas")]
-      [:div.d-grid.my-2
-       (side-bar-btn :players "Jugadores")]
-      (when (contains? (-> @!state :data :games)
-                       "Dudeney's Art Gallery")
-        [:div.d-grid.my-2
-         (side-bar-btn :dudeney "Dudeney")])
-      (when (contains? (-> @!state :data :games)
-                       "AstroBrawl")
-        [:div.d-grid.my-2
-         (side-bar-btn :astrobrawl "AstroBrawl")])
-      [:hr]
-      [:div
-       (map game-checkbox (-> @!state :data :games sort))]
-      [:hr]
-      [:div.text-center
-       (players-filter (-> @!state :filters :players))]
-      [:hr]
-      [:div.text-center
-       (local-online-filter)]
-      [:hr]
-      [:div.text-center
-       (platform-filter (-> @!state :filters :platforms))]
-      [:hr]
-      [:div.d-grid.my-2
-       (period-filter (-> @!state :filters :period))]]]
-    [:div#charts.col.w-auto ;overflow-auto.vh-100
-     [:div.my-1]
-     [:div
-      (when (visible-chart? :summary)
-        (summary (:data @!state)))
-      (when (visible-chart? :sessions-and-matches)
-        (sessions-and-matches (:data @!state)))
-      (when (visible-chart? :players)
-        (players (:data @!state)))
-      (when (visible-chart? :dudeney)
-        (dudeney (:data @!state)))
-      (when (visible-chart? :astrobrawl)
-        (astrobrawl (:data @!state)))]]]])
-
-
-(defn update-ui! [old-state new-state]
+(defn update-ui!
+  [old-state {:keys [data filters] :as new-state}]
   (vega/finalize!)
-  (doto (get-element-by-id "content")
+  (doto (get-element-by-id "filters")
     (clear!)
-    (append! (main-container)))
+    (append! [:div.offcanvas-header
+              [:h5.offcanvas-title ""]
+              [:button.btn-close.text-reset {:type "button" :data-bs-dismiss "offcanvas"}]]
+             [:div
+              [:div.d-grid
+               (side-bar-btn :summary "Resumen ejecutivo")]
+              [:div.d-grid.my-2
+               (side-bar-btn :sessions-and-matches "Sesiones y partidas")]
+              [:div.d-grid.my-2
+               (side-bar-btn :players "Jugadores")]
+              (when (contains? (:games data)
+                               "Dudeney's Art Gallery")
+                [:div.d-grid.my-2
+                 (side-bar-btn :dudeney "Dudeney")])
+              (when (contains? (:games data)
+                               "AstroBrawl")
+                [:div.d-grid.my-2
+                 (side-bar-btn :astrobrawl "AstroBrawl")])
+              [:hr]
+              [:div
+               (map game-checkbox (sort (:games data)))]
+              [:hr]
+              [:div.text-center
+               (players-filter (:players filters))]
+              [:hr]
+              [:div.text-center
+               (local-online-filter)]
+              [:hr]
+              [:div.text-center
+               (platform-filter (:platforms filters))]
+              [:hr]
+              [:div.d-grid.my-2
+               (period-filter (:period filters))]]))
+  (doto (get-element-by-id "charts")
+    (clear!)
+    (append! [:div
+              (when (visible-chart? :summary)
+                (summary data))
+              (when (visible-chart? :sessions-and-matches)
+                (sessions-and-matches data))
+              (when (visible-chart? :players)
+                (players data))
+              (when (visible-chart? :dudeney)
+                (dudeney data))
+              (when (visible-chart? :astrobrawl)
+                (astrobrawl data))]))
   (when-let [scroll js/document.scrollingElement]
     (when (not= (:visible-charts old-state)
                 (:visible-charts new-state))
@@ -927,11 +924,24 @@
            :sessions filtered-sessions
            :matches filtered-matches)))
 
+(def ui 
+  [:div#main-container.container-fluid
+   [:div.row
+    [:div.col.w-auto ;overflow-auto.vh-100
+     [:div.my-2
+      [:button.btn.btn-primary {:type "button" :data-bs-toggle "offcanvas" :data-bs-target "#filters"}
+       [:i.fa-solid.fa-bars]]]
+     [:div#charts]]
+    [:div#filters.offcanvas.offcanvas-start {:tabindex -1}]]])
+
 (defn initialize-ui! [data]
   (go
     (if (nil? data)
       (js/window.location.replace "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-      (do (add-watch !state ::state-change
+      (do (doto (get-element-by-id "content")
+            (clear!)
+            (append! ui))
+          (add-watch !state ::state-change
                      (fn [_ _ old new]
                        (if (not= (:filters old)
                                  (:filters new))
