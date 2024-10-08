@@ -120,38 +120,39 @@
                             (set)
                             (count))]
     (when-not (zero? (count filtered-matches))
-      [:div.row
-       [:div.my-4.col-auto
-        (title (or game-name "Todos los juegos seleccionados"))
-        [:div.ps-4
+      [:div.card
+       [:div.card-header.fw-bold (or game-name "Todos los juegos seleccionados")]
+       [:div.card-body
+        [:p.card-text
          (count filtered-matches)
          (if (= 1 (count filtered-matches))
-           " partida (desde "
-           " partidas (desde ")
+           " partida"
+           " partidas")
+         " (desde "
          (or (:date (first filtered-matches)) "?")
          " a "
          (or (:date (last filtered-matches)) "?")
          ")"]
-        [:div.ps-4
+        [:p.card-text
          (count countries)
          (if (= 1 (count countries))
            " país"
            " países")]
-        [:div.ps-4 unique-players
+        [:p.card-text unique-players
          (if (= 1 unique-players)
            " jugador único"
            " jugadores únicos")]
-        [:div.ps-4 (.toFixed (->> sessions-by-day
-                                  (map (comp count second))
-                                  (average))
-                             2)
+        [:p.card-text (.toFixed (->> sessions-by-day
+                                     (map (comp count second))
+                                     (average))
+                                2)
          " sesiones diarias (promedio)"]
-        [:div.ps-4 (.toFixed (->> matches-by-day
-                                  (map (comp count second))
-                                  (average))
-                             2)
+        [:p.card-text (.toFixed (->> matches-by-day
+                                     (map (comp count second))
+                                     (average))
+                                2)
          " partidas diarias (promedio)"]
-        [:div.ps-4 "Duración de la sesión: "
+        [:p.card-text "Duración de la sesión: "
          (.toFixed (->> filtered-sessions
                         (map :duration_m)
                         (average))
@@ -159,8 +160,15 @@
          " minutos (promedio)"]]])))
 
 (defn summary [{:keys [games sessions matches]}]
-  (list (summary-by-game sessions matches nil)
-        (map (partial summary-by-game sessions matches) games)))
+  [:div.my-2.container-fluid
+   (->> (cons (summary-by-game sessions matches nil)
+              (keep (partial summary-by-game sessions matches) games))
+        (partition-all 2)
+        (map (fn [cards]
+               [:div.row
+                (map (fn [card]
+                       [:div.col-lg-4.my-2 card])
+                     cards)])))])
 
 (defn sessions-and-matches [{:keys [sessions matches]}]
   [:div.row
@@ -959,7 +967,7 @@
         [:button.btn.btn-primary
          {:type "button" :data-bs-toggle "offcanvas" :data-bs-target "#filters"}
          [:i.fa-solid.fa-bars]]]]]]
-    [:div.col-auto [:div#charts]]
+    [:div#charts.container]
     [:div#filters.offcanvas.offcanvas-end.px-0 {:tabindex -1}]]])
 
 (defn initialize-ui! [data]
