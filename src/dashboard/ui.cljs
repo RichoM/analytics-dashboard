@@ -827,7 +827,7 @@
     (append! [:div.offcanvas-header
               [:h5.offcanvas-title ""]
               [:button.btn-close.text-reset {:type "button" :data-bs-dismiss "offcanvas"}]]
-             [:div
+             [:div.overflow-auto.px-2
               [:div.d-grid
                (side-bar-btn :summary "Resumen ejecutivo")]
               [:div.d-grid.my-2
@@ -869,11 +869,7 @@
               (when (visible-chart? :dudeney)
                 (dudeney data))
               (when (visible-chart? :astrobrawl)
-                (astrobrawl data))]))
-  (when-let [scroll js/document.scrollingElement]
-    (when (not= (:visible-charts old-state)
-                (:visible-charts new-state))
-      (go (oset! scroll :scrollTop 0)))))
+                (astrobrawl data))])))
 
 (defn subtract-days-from-today [days]
   (js/Date. (- (js/Date.now)
@@ -932,7 +928,7 @@
            :sessions sessions
            :matches matches)))
 
-(def ui 
+(def main-container
   [:div#main-container.container-fluid
    [:div.row
     [:div.col.w-auto ;overflow-auto.vh-100
@@ -940,7 +936,7 @@
       [:button.btn.btn-primary {:type "button" :data-bs-toggle "offcanvas" :data-bs-target "#filters"}
        [:i.fa-solid.fa-bars]]]
      [:div#charts]]
-    [:div#filters.offcanvas.offcanvas-start {:tabindex -1}]]])
+    [:div#filters.offcanvas.offcanvas-start.px-0 {:tabindex -1}]]])
 
 (defn initialize-ui! [data]
   (go
@@ -948,12 +944,12 @@
       (js/window.location.replace "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
       (do (doto (get-element-by-id "content")
             (clear!)
-            (append! ui))
+            (append! main-container))
           (add-watch !state ::state-change
                      (fn [_ _ old new]
                        (if (not= (:filters old)
                                  (:filters new))
-                         (update-filters! data)
+                         (time (update-filters! data))
                          (update-ui! old new))))
           (swap! !state assoc
                  :data data
@@ -977,6 +973,7 @@
   (clear! (get-element-by-id "content")))
 
 (comment
+  (-> @!state :filters)
 
   (do
     (def games (-> @!state :data :games))
