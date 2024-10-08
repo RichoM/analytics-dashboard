@@ -17,6 +17,12 @@
                                 :match-duration {}}
                        :visible-charts #{:summary}}))
 
+(def chart-titles {:summary "Resumen ejecutivo"
+                   :sessions-and-matches "Sesiones y partidas"
+                   :players "Jugadores"
+                   :dudeney "Dudeney"
+                   :astrobrawl "AstroBrawl"})
+
 (defn html [element]
   (let [element (vega/html html element)]
     (if (vector? element)
@@ -292,7 +298,7 @@
                                    countries/all-countries))
                     :color-scheme :purples)]])
 
-(def recurrentes 
+(def recurrentes
   [:abbr {:title "Abrieron el juego en 2 días distintos"}
    "recurrentes"])
 
@@ -457,7 +463,7 @@
                :y {:field :play-time
                    :title "Duración (minutos)"}
                :color {:field :game})]
-    
+
     [:div.col-auto
      (title "Tiempo de juego")
      (vega/boxplot :values (->> sessions
@@ -726,8 +732,8 @@
 (defn visible-chart? [chart-id]
   (contains? (:visible-charts @!state) chart-id))
 
-(defn side-bar-btn [chart-id text]
-  (doto (toggle-btn text)
+(defn side-bar-btn [chart-id]
+  (doto (toggle-btn (get chart-titles chart-id "???"))
     (set-pressed! (visible-chart? chart-id))
     (bs/on-click #(swap! !state update :visible-charts
                          (fn [visible-charts]
@@ -821,6 +827,24 @@
 
 (defn update-ui! [{:keys [data filters]}]
   (vega/finalize!)
+  (doto (get-element-by-id "summary-title")
+    (oset! :textContent (->> (:visible-charts @!state)
+                             (map chart-titles)
+                             (str/join " + "))))
+  (doto (get-element-by-id "summary-label")
+    (oset! :textContent (let [matches (:matches data)
+                              sessions (:sessions data)
+                              players (->> sessions
+                                           (map :pc)
+                                           (set))]
+                          (str (count matches) (if (= 1 (count matches)) " partida" " partidas") " / "
+                               (count sessions) (if (= 1 (count sessions)) " sesión" " sesiones") " / "
+                               (count players) (if (= 1 (count players)) " jugador" " jugadores")
+                               " (desde "
+                               (or (:date (first matches)) "?")
+                               " a "
+                               (or (:date (last matches)) "?")
+                               ")"))))
   (doto (get-element-by-id "filters")
     (clear!)
     (append! [:div.offcanvas-header
@@ -828,17 +852,17 @@
               [:button.btn-close.text-reset {:type "button" :data-bs-dismiss "offcanvas"}]]
              [:div.overflow-auto.px-2
               [:div.d-grid
-               (side-bar-btn :summary "Resumen ejecutivo")]
+               (side-bar-btn :summary)]
               [:div.d-grid.my-2
-               (side-bar-btn :sessions-and-matches "Sesiones y partidas")]
+               (side-bar-btn :sessions-and-matches)]
               [:div.d-grid.my-2
-               (side-bar-btn :players "Jugadores")]
+               (side-bar-btn :players)]
               (when (contains? (:games data) "Dudeney's Art Gallery")
                 [:div.d-grid.my-2
-                 (side-bar-btn :dudeney "Dudeney")])
+                 (side-bar-btn :dudeney)])
               (when (contains? (:games data) "AstroBrawl")
                 [:div.d-grid.my-2
-                 (side-bar-btn :astrobrawl "AstroBrawl")])
+                 (side-bar-btn :astrobrawl)])
               [:hr]
               [:div
                (map game-checkbox (sort (:games data)))]
@@ -881,8 +905,8 @@
     :last-week (subtract-days-from-today 7)
     (js/Date. 0)))
 
-(def filtered-data 
-  (memoize 
+(defonce filtered-data
+  (memoize
    (fn [filters {:keys [sessions matches]}]
      (let [games (:games filters)
            period (let [min-date (period-min-date (:period filters))
@@ -895,30 +919,28 @@
            local? (-> filters :local?)
            online? (-> filters :online?)
            filtered-matches (->> matches
-                                 (filter (comp games :game))
-                                 (filter (comp period :datetime))
-                                 (filter (comp players :player_count))
-                                 (filter (fn [match]
-                                           (case [local? online?]
-                                             [false false] false
-                                             [false true] (not (:local? match))
-                                             [true false] (:local? match)
-                                             [true true] true)))
-                                 (filter (fn [match]
-                                           (when-let [session (-> match meta :session)]
-                                             (platforms (:platform session)))))
-                                 (vec))
+                                 (filterv (comp games :game))
+                                 (filterv (comp period :datetime))
+                                 (filterv (comp players :player_count))
+                                 (filterv (fn [match]
+                                            (case [local? online?]
+                                              [false false] false
+                                              [false true] (not (:local? match))
+                                              [true false] (:local? match)
+                                              [true true] true)))
+                                 (filterv (fn [match]
+                                            (when-let [session (-> match meta :session)]
+                                              (platforms (:platform session))))))
            filtered-sessions (let [valid-sessions (->> filtered-matches
                                                        (map :session)
                                                        (set))]
                                (->> sessions
-                                    (filter (comp valid-sessions :id))
-                                    (vec)))]
+                                    (filterv (comp valid-sessions :id))))]
        {:sessions filtered-sessions
         :matches filtered-matches}))))
 
 (defn update-filters! [data]
-  (let [{:keys [sessions matches]} 
+  (let [{:keys [sessions matches]}
         (filtered-data (:filters @!state) data)]
     (swap! !state update :data
            assoc
@@ -928,12 +950,17 @@
 (def main-container
   [:div#main-container.container-fluid
    [:div.row
-    [:div.col.w-auto ;overflow-auto.vh-100
-     [:div.my-2
-      [:button.btn.btn-primary {:type "button" :data-bs-toggle "offcanvas" :data-bs-target "#filters"}
-       [:i.fa-solid.fa-bars]]]
-     [:div#charts]]
-    [:div#filters.offcanvas.offcanvas-start.px-0 {:tabindex -1}]]])
+    [:nav.navbar.sticky-top.navbar-expand-lg.navbar-light.bg-light
+     [:div.container-fluid
+      [:div.navbar-collapse
+       [:div#summary-title.navbar-brand.mb-1.me-5.h1 ""]
+       [:div.col.navbar-text [:span#summary-label ""]]
+       [:form.d-flex
+        [:button.btn.btn-primary
+         {:type "button" :data-bs-toggle "offcanvas" :data-bs-target "#filters"}
+         [:i.fa-solid.fa-bars]]]]]]
+    [:div.col-auto [:div#charts]]
+    [:div#filters.offcanvas.offcanvas-end.px-0 {:tabindex -1}]]])
 
 (defn initialize-ui! [data]
   (go
@@ -977,7 +1004,7 @@
     (def sessions (-> @!state :data :sessions))
     (def matches (-> @!state :data :matches)))
 
-  
+
   (type (-> @!state :data :matches))
   (-> (first matches) meta :session :pc)
   (set (map :platform sessions))
@@ -1018,5 +1045,4 @@
   (count astrobrawl-sessions)
 
   (/ (count astrobrawl-sessions) (count sessions))
-  (/ (count astrobrawl-matches) (count matches))
-  )
+  (/ (count astrobrawl-matches) (count matches)))
