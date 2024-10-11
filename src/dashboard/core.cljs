@@ -48,3 +48,32 @@
 
 (defn exit! []
   (ui/clear-ui!))
+
+(comment
+  
+  (->> (:sessions @!data)
+       (filter (comp :original-id meta))
+       (set)
+       (count))
+  
+  
+  (data/map->Session (into {} (first (:sessions @!data))))
+
+  (->> (:matches @!data)
+       (first)
+       (meta)
+       :session
+       (meta))
+  
+  (->> (:matches @!data)
+       (filter (fn [{:keys [session]}]
+                 (= "1ad9e9f6-9413-4e99-b810-541d035157c0.0.3518" session))))
+  
+
+  (->> (:sessions @!data)
+       (take 100)
+       (map (fn [session]
+              (filter ()))))
+  (let [sessions-indexed (group-by :id (:sessions @!data))])
+  
+  )

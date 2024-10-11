@@ -1,7 +1,8 @@
 {:source-paths ["src" "test"]
 
  :dependencies [[crate "0.2.5"]
-                [binaryage/oops "0.7.1"]]
+                [binaryage/oops "0.7.1"]
+                [com.cognitect/transit-cljs "0.8.280"]]
 
  :nrepl {:port 9000
          :middleware []}

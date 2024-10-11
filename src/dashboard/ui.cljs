@@ -839,20 +839,21 @@
     (oset! :textContent (->> (:visible-charts @!state)
                              (map chart-titles)
                              (str/join " + "))))
-  (doto (get-element-by-id "summary-label")
-    (oset! :textContent (let [matches (:matches data)
-                              sessions (:sessions data)
-                              players (->> sessions
-                                           (map :pc)
-                                           (set))]
-                          (str (count matches) (if (= 1 (count matches)) " partida" " partidas") " / "
-                               (count sessions) (if (= 1 (count sessions)) " sesión" " sesiones") " / "
-                               (count players) (if (= 1 (count players)) " jugador" " jugadores")
-                               " (desde "
-                               (or (:date (first matches)) "?")
-                               " a "
-                               (or (:date (last matches)) "?")
-                               ")"))))
+  (let [matches (:matches data)
+        sessions (:sessions data)
+        players (->> sessions
+                     (map :pc)
+                     (set))]
+    (doto (get-element-by-id "summary-label")
+      (clear!)
+      (append! [:span.col.navbar-text (str (count matches) (if (= 1 (count matches)) " partida" " partidas") " / "
+                           (count sessions) (if (= 1 (count sessions)) " sesión" " sesiones") " / "
+                           (count players) (if (= 1 (count players)) " jugador" " jugadores"))])
+      (append! [:span.col.navbar-text (str " (desde "
+                           (or (:date (first matches)) "?")
+                           " a "
+                           (or (:date (last matches)) "?")
+                           ")")])))
   (doto (get-element-by-id "filters")
     (clear!)
     (append! [:div.offcanvas-header
@@ -962,13 +963,26 @@
      [:div.container-fluid
       [:div.navbar-collapse
        [:div#summary-title.navbar-brand.mb-1.me-5.h1 ""]
-       [:div.col.navbar-text [:span#summary-label ""]]
+       [:div#summary-label.col]
        [:form.d-flex
+        [:button#backup-button.btn.btn-primary.me-2
+         {:type "button"}
+         [:i.fa-solid.fa-download.pe-2] "Backup"]
         [:button.btn.btn-primary
          {:type "button" :data-bs-toggle "offcanvas" :data-bs-target "#filters"}
          [:i.fa-solid.fa-bars]]]]]]
     [:div#charts.container]
     [:div#filters.offcanvas.offcanvas-end.px-0 {:tabindex -1}]]])
+
+(defn download-backup! []
+  (show-wait-dialog!
+   "Preparing backup..."
+   (go
+     (let [backup (<? (data/backup!))]
+       (js/console.log backup)
+       (doseq [[id data] backup]
+         (let [blob (js/Blob. [data] #js {:type "text/plain;charset=utf-8"})]
+           (js/saveAs blob (str id ".json") #js {:autoBom false})))))))
 
 (defn initialize-ui! [data]
   (go
@@ -977,6 +991,8 @@
       (do (doto (get-element-by-id "content")
             (clear!)
             (append! main-container))
+          (doto (get-element-by-id "backup-button")
+            (bs/on-click download-backup!))
           (add-watch !state ::state-change
                      (fn [_ _ old new]
                        (if (not= (:filters old)
@@ -1011,7 +1027,36 @@
     (def games (-> @!state :data :games))
     (def sessions (-> @!state :data :sessions))
     (def matches (-> @!state :data :matches)))
+  
+  (first sessions)
 
+  ()
+
+  (- (count matches)
+     (->> matches
+          (map :id)))
+
+  (- (count sessions)
+     (->> sessions
+          (map (comp :original-id meta))
+          (set)
+          (count)))
+  
+  (-> (filter (fn [{:keys [session]}]
+                (= "27272727-2727-4727-a727-272727272727.0" session))
+              (-> @!state :data :matches))
+      (first)
+      (meta)
+      :session)
+
+  (filter (fn [{:keys [game]}]
+            (= game "AstroBrawl"))
+          (-> @!state :data :sessions))
+
+  (filter (fn [session]
+            (= "27272727-2727-4727-a727-272727272727"
+               (:original-id (meta session))))
+          (-> @!state :data :sessions))
 
   (type (-> @!state :data :matches))
   (-> (first matches) meta :session :pc)
@@ -1053,4 +1098,5 @@
   (count astrobrawl-sessions)
 
   (/ (count astrobrawl-sessions) (count sessions))
-  (/ (count astrobrawl-matches) (count matches)))
+  (/ (count astrobrawl-matches) (count matches))
+  )

@@ -7,7 +7,10 @@
             [utils.bootstrap :as bs]
             [utils.async :refer [go-try <?]]
             [utils.core :refer [pad-left]]
-            [dashboard.countries :as countries]))
+            [cljs.core.async.interop :refer [p->c] :refer-macros [<p!]]
+            [dashboard.countries :as countries]
+            [cognitect.transit :as t]
+            [clojure.data :as data]))
 
 (defn rows->maps [rows]
   (let [columns (mapv keyword (first rows))]
@@ -23,7 +26,7 @@
 
 (defrecord Session [id game date time datetime
                     duration_ms duration_s duration_m
-                    pc ip country_code
+                    pc ip country_code country
                     version platform match_count
                     valid?])
 
@@ -32,8 +35,16 @@
                   mode local? player_count session
                   over? metadata valid?])
 
-(def data-sources [(gs/Spreadsheet. "1JFNNtlTGjFk3BJQFfSTTsQ7IuKjkdTPEcxT7MiLkRyY")
-                   (gs/Spreadsheet. "1Yj79TCA0I-73SpLtBQztqNNJ8e-ANPYX5TpPLGZmqqI")])
+(defprotocol DataSource
+  (fetch-data! [src]))
+
+(deftype TransitSource [url])
+
+(def historical-sources [(TransitSource. "historical/1JFNNtlTGjFk3BJQFfSTTsQ7IuKjkdTPEcxT7MiLkRyY.json")
+                         (TransitSource. "historical/1Yj79TCA0I-73SpLtBQztqNNJ8e-ANPYX5TpPLGZmqqI.json")])
+
+(def gsheet-sources [(gs/Spreadsheet. "1JFNNtlTGjFk3BJQFfSTTsQ7IuKjkdTPEcxT7MiLkRyY")
+                     (gs/Spreadsheet. "1Yj79TCA0I-73SpLtBQztqNNJ8e-ANPYX5TpPLGZmqqI")])
 
 (defn enrich-session
   [{:keys [game date time duration_ms match_count version platform country_code ip] :as session}]
@@ -52,48 +63,43 @@
                          (not (str/blank? version))
                          (not (str/includes? version "DEMO"))
                          (not (str/includes? platform "Editor"))
-                         
+
                          ; HACK(Richo): Discard AstroBrawl v2.1.0 since it's not public yet!
                          (if (= "astrobrawl" (str/lower-case game))
                            (not (str/starts-with? version "2.1.0"))
                            true))))))
 
-(defn get-sessions! [spreadsheet]
-  (go
-    (try (->> (<? (gs/get-values! spreadsheet "sessions!A:K"))
-              (rows->maps)
-              (mapv enrich-session))
-         (catch :default err
-           (println "Error trying to fetch sessions from spreadsheet" 
-                    {:spreadsheet spreadsheet :error err})
-           []))))
+(defonce session-idgen (atom 0))
 
 (defn deduplicate-ids [sessions]
   (->> (group-by :id sessions)
        (mapcat (fn [[id duplicate-sessions]]
-                 (map-indexed (fn [idx session]
-                                (-> session
-                                    (assoc :id (str id "." idx))
-                                    (vary-meta assoc :original-id id)))
-                              duplicate-sessions)))))
+                 (map (fn [session]
+                        (-> session
+                            (assoc :id (swap! session-idgen inc))
+                            (vary-meta assoc :original-id id)))
+                      duplicate-sessions)))))
 
-(defn get-all-sessions! []
-  (go-try
-   (->> (<? (->> data-sources
-                 (map get-sessions!)
-                 (a/map concat)))
-        (deduplicate-ids)
-        (sort-by :datetime))))
+(defn get-sessions! [spreadsheet]
+  (go
+    (try (->> (<? (gs/get-values! spreadsheet "sessions!A:K"))
+              (rows->maps)
+              (map enrich-session)
+              (deduplicate-ids))
+         (catch :default err
+           (println "Error trying to fetch sessions from spreadsheet"
+                    {:spreadsheet spreadsheet :error err})
+           []))))
 
 (defn enrich-match
-  [sessions-indexed 
+  [sessions-indexed
    {:keys [game session date time duration_ms local? player_count over? metadata] :as match}]
   (let [duration-ms (parse-long duration_ms)
         begin-dt (datetime date time)
         candidate-sessions (get-in sessions-indexed [game session])
         actual-session (->> candidate-sessions
                             (filter :valid?)
-                            (take-while (fn [{:keys [datetime]}] 
+                            (take-while (fn [{:keys [datetime]}]
                                           (<= datetime begin-dt)))
                             (last))]
     (map->Match
@@ -115,23 +121,14 @@
                          (not (str/includes? (:version actual-session) "DEMO")))))))
 
 (defn get-matches! [spreadsheet sessions-indexed]
-  (go 
+  (go
     (try (->> (<? (gs/get-values! spreadsheet "matches!A:K"))
-               (rows->maps)
-               (mapv (partial enrich-match sessions-indexed)))
+              (rows->maps)
+              (mapv (partial enrich-match sessions-indexed)))
          (catch :default err
            (println "Error trying to fetch matches from spreadsheet"
                     {:spreadsheet spreadsheet :error err})
            []))))
-
-(defn get-all-matches! [sessions]
-  (go-try
-   (let [sessions-indexed (update-vals (group-by :game sessions)
-                                       (partial group-by (comp :original-id meta)))]
-     (sort-by :datetime
-              (<? (->> data-sources
-                       (map #(get-matches! % sessions-indexed))
-                       (a/map concat)))))))
 
 (defn update-match-count [sessions matches]
   (let [matches-indexed (->> matches
@@ -141,7 +138,7 @@
          (filter :valid?)
          (map (fn [{:keys [id] :as session}]
                 (let [match-count (count (get matches-indexed id []))]
-                  (assoc session 
+                  (assoc session
                          :match_count match-count
                          :valid? (> match-count 0))))))))
 
@@ -157,19 +154,82 @@
                           "Only 1 session for each match!")
                   (vary-meta match assoc :session (first sessions))))))))
 
+(extend-type gs/Spreadsheet
+  DataSource
+  (fetch-data! [spreadsheet]
+    (go-try
+     (let [; First we get the sessions
+           sessions (<? (get-sessions! spreadsheet))
+
+           ; Then we index the sessions by game and id
+           sessions-indexed (update-vals (group-by :game sessions)
+                                         (partial group-by (comp :original-id meta)))
+
+           ; Then we can get the matches
+           matches (<? (get-matches! spreadsheet sessions-indexed))
+
+           ; Then we join them and update some of their data 
+           sessions (update-match-count sessions matches)
+           matches (assoc-session matches sessions)
+
+           ; Finally, we exclude all the invalid sessions and matches
+           sessions (filterv :valid? sessions)
+           matches (filterv :valid? matches)]
+       {:sessions sessions
+        :matches matches}))))
+
+(def write-handlers
+  {Session (t/write-handler "Session" (partial into {}))
+   Match (t/write-handler "Match" (partial into {}))
+   countries/Country (t/write-handler "Country" (partial into {}))})
+
+(def read-handlers
+  {"Session" (t/read-handler map->Session)
+   "Match" (t/read-handler map->Match)
+   "Country" (t/read-handler countries/map->Country)})
+
+(extend-type TransitSource
+  DataSource
+  (fetch-data! [src]
+    (go-try
+     (let [res (<? (p->c (js/fetch (.-url src))))
+           text (<? (p->c (ocall! res :text)))
+           reader (t/reader :json {:handlers read-handlers})
+           {:keys [sessions matches]} (t/read reader text)
+           
+           ; Then we join them and update some of their data 
+           sessions (update-match-count sessions matches)
+           matches (assoc-session matches sessions)]
+       {:sessions sessions
+        :matches matches}))))
+
+(defn backup! []
+  (go (try
+        (let [!result (atom {})
+              writer (t/writer :json {:handlers write-handlers})
+              reader (t/reader :json {:handlers read-handlers})]
+          (doseq [spreadsheet gsheet-sources]
+            (let [data (<? (fetch-data! spreadsheet))
+                  serialized (t/write writer data)]
+              (assert (= data (t/read reader serialized))
+                      "Serialized data does not match!")
+              (swap! !result assoc (:id spreadsheet) serialized)))
+          @!result)
+        (catch :default err
+          (println "ERROR" err)))))
+
+
+(defn get-all-data! []
+  (go-try
+   (<? (->> (concat historical-sources gsheet-sources)
+            (map fetch-data!)
+            (a/map (partial merge-with concat))))))
+
 (defn fetch! []
   (go (try
-        (let [; First we get all the sessions and matches
-              sessions (<? (get-all-sessions!))
-              matches (<? (get-all-matches! sessions))
-
-              ; Then we join them and update some of their data 
-              sessions (update-match-count sessions matches)
-              matches (assoc-session matches sessions)
-              
-              ; Finally, we exclude all the invalid sessions and matches
-              sessions (filterv :valid? sessions)
-              matches (filterv :valid? matches)]
+        (let [{:keys [sessions matches]} (<? (get-all-data!))
+              sessions (sort-by :datetime sessions)
+              matches (sort-by :datetime matches)]
           {:games (set (map :game sessions))
            :sessions sessions
            :matches matches})
@@ -178,21 +238,65 @@
 
 (comment
 
+  (keys data)
+  (first (:sessions data))
+
+  (go (try
+        (let [begin-time (js/Date.now)
+              d (<? (fetch-data! (first historical-sources)))
+              end-time (js/Date.now)
+              elapsed-s (/ (- end-time begin-time) 1000)]
+          (def data d)
+          (println elapsed-s "seconds"))  
+        (println "DONE")
+        (catch :default err
+          (println "ERROR" err))))
+  
+  (require '[clojure.data :refer [diff]])
+  (def data_diff (atom nil))
+  (go (try
+        (let [writer (t/writer :json {:handlers write-handlers})
+              reader (t/reader :json {:handlers read-handlers})
+              data (<? (fetch-data! (first gsheet-sources)))
+              serialized (t/write writer data)]
+          (reset! data_diff (diff data (t/read reader serialized))))
+        (println "DONE!")
+        (catch :default err
+          (println "ERROR" err))))
+
+  (js/console.log @data_diff)
+  (js/console.log (third @data_diff))
+
+  (go (try (let [{:keys [sessions matches]} (<? (->> gsheet-sources
+                                                     (map fetch-data!)
+                                                     (a/map (partial merge-with concat))))]
+             (println [(count sessions)
+                       (count matches)]))
+           (catch :default err
+             (println "ERROR" err))))
+
   (def data (atom nil))
+
+  (go (try
+        (reset! data (<? (fetch-data! (first gsheet-sources))))
+        (println "DONE")
+        (catch :default err
+          (println "ERROR" err))))
 
   (keys @data)
 
-  (first (-> @data :sessions))
+  (def writer (t/writer :json {:handlers write-handlers}))
+  (def reader (t/reader :json {:handlers read-handlers}))
 
-  (first (-> @data :matches))
+  (def match (first (:matches @data)))
 
-  (->> (:matches @data)
-       (keep :metadata))
+  (meta match)
+  (def match2 (t/read reader (t/write writer match)))
 
-  (go (reset! data (<! (fetch!))))
-  
-  (js/Date. "2024-05-06")
-  )
+  (meta match2)
+  (= match match2)
+
+  (-> @data :sessions))
 
 (defn dates-between [start end]
   (when (<= start end)
@@ -231,15 +335,13 @@
 (comment
   (def state @dashboard.ui/!state)
 
-  
+
   (def sessions (filter :valid? (-> state :data :sessions)))
   (def matches (filter :valid? (-> state :data :matches)))
   (def begin (:date (first sessions)))
   (def end (:date (last sessions)))
 
-  end
-  
-  )
+  end)
 
 (defn matches-per-session [sessions matches]
   (if (empty? sessions)
