@@ -1,0 +1,1 @@
+shadow-cljs -d cider/cider-nrepl:0.47.1 watch :dev
