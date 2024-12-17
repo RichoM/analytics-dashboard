@@ -40,8 +40,7 @@
 
 (deftype TransitSource [url])
 
-(def historical-sources [(TransitSource. "historical/1JFNNtlTGjFk3BJQFfSTTsQ7IuKjkdTPEcxT7MiLkRyY.json")
-                         (TransitSource. "historical/1Yj79TCA0I-73SpLtBQztqNNJ8e-ANPYX5TpPLGZmqqI.json")])
+(def historical-sources [])
 
 (def gsheet-sources [(gs/Spreadsheet. "1JFNNtlTGjFk3BJQFfSTTsQ7IuKjkdTPEcxT7MiLkRyY")
                      (gs/Spreadsheet. "1Yj79TCA0I-73SpLtBQztqNNJ8e-ANPYX5TpPLGZmqqI")])
