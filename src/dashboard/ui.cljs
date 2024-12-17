@@ -723,7 +723,26 @@
                     :axis {:labelAngle 0}}
                 :y {:field :count
                     :title "Cantidad"}
-                :color {:field :version})]]))
+                :color {:field :version})]
+     [:div.col-auto
+      (title "Waves")
+      (vega/bar :values (->> matches
+                             (filter (comp #{"AstroBrawl"} :game))
+                             (filter (comp #{"SURVIVAL"} :mode))
+                             (keep :metadata)
+                             (map :round_idx)
+                             (frequencies)
+                             (mapv (fn [[round_idx times]]
+                                     {:wave round_idx :count times})))
+                :height 256
+                :x {:field :wave
+                    :bin true
+                    :title "Wave alcanzada"}
+                :y {:field :count
+                    :aggregate "sum"
+                    :title "Cantidad de partidas"
+                    :scale {:type "log"}})]]
+    ))
 
 (defn toggle-btn [text]
   (html [:button.r-button.btn.btn-sm.btn-outline-dark.rounded-pill
