@@ -984,7 +984,7 @@
        [:div#summary-title.navbar-brand.mb-1.me-5.h1 ""]
        [:div#summary-label.col]
        [:form.d-flex
-        [:button#backup-button.btn.btn-primary.me-2
+        [:button#backup-button.btn.btn-primary.me-2.d-none
          {:type "button"}
          [:i.fa-solid.fa-download.pe-2] "Backup"]
         [:button.btn.btn-primary
