@@ -71,7 +71,12 @@
 
 (defonce session-idgen (atom 0))
 
-(defn deduplicate-ids [sessions]
+(defn deduplicate-ids 
+  "Assigns new ids to all sessions, making sure no two sessions share the same id.
+   When could this happen?
+   The original id is kept on the session metadata under the :original-id key.
+   "
+  [sessions]
   (->> (group-by :id sessions)
        (mapcat (fn [[id duplicate-sessions]]
                  (map (fn [session]
