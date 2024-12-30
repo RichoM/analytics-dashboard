@@ -83,4 +83,10 @@
      :upper (percentiles :p91)}))
 
 (defn title [& text]
-  [:h6.fw-bold.ps-4.text-wrap text])
+  (if (= 1 (count text))
+    [:h6.fw-bold.ps-4.text-wrap text]
+    [:h6.ps-4.text-wrap
+     [:span.fw-bold (first text)][:br]
+     (->> (rest text)
+          (map (fn [s] [:small [:small s]]))
+          (interpose [:br]))]))
