@@ -6,7 +6,8 @@
             [utils.bootstrap :as bs]
             [utils.async :refer [go-try <?]]
             [dashboard.data :as data]
-            [dashboard.ui :as ui]))
+            [dashboard.ui :as ui]
+            [dashboard.ui-common :as uic]))
 
 (def credentials {:client_id "201101636025-l10ovc8h1fl4qnkd4fcpuq7d1gfot4f0.apps.googleusercontent.com"
                   :scope "https://www.googleapis.com/auth/spreadsheets.readonly"})
@@ -36,11 +37,11 @@
 (defn init! []
   (go (try
         (when-not (gs/authorized?)
-          (<? (ui/show-authorization-dialog!))
-          (<? (ui/show-wait-dialog! "Waiting for google..."
+          (<? (uic/show-authorization-dialog!))
+          (<? (uic/show-wait-dialog! "Waiting for google..."
                                     (authorize!))))
         (when (nil? @!data)
-          (<? (ui/show-wait-dialog! "Loading data..."
+          (<? (uic/show-wait-dialog! "Loading data..."
                                     (fetch-data!))))
         (ui/initialize-ui! @!data)
         (catch :default err
@@ -48,32 +49,3 @@
 
 (defn exit! []
   (ui/clear-ui!))
-
-(comment
-  
-  (->> (:sessions @!data)
-       (filter (comp :original-id meta))
-       (set)
-       (count))
-  
-  
-  (data/map->Session (into {} (first (:sessions @!data))))
-
-  (->> (:matches @!data)
-       (first)
-       (meta)
-       :session
-       (meta))
-  
-  (->> (:matches @!data)
-       (filter (fn [{:keys [session]}]
-                 (= "1ad9e9f6-9413-4e99-b810-541d035157c0.0.3518" session))))
-  
-
-  (->> (:sessions @!data)
-       (take 100)
-       (map (fn [session]
-              (filter ()))))
-  (let [sessions-indexed (group-by :id (:sessions @!data))])
-  
-  )
