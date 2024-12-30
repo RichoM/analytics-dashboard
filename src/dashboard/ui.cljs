@@ -261,7 +261,8 @@
 
    [:div.my-4.row
     [:div.col-auto
-     (ui-common/title "Jugadores nuevos vs " recurrentes " (TOTAL)")
+     (ui-common/title [:span "Jugadores nuevos vs " recurrentes]
+                      "(TOTAL)")
      (vega/arc :values (let [pcs (group-by :pc sessions)
                              freq-map (->> pcs
                                            (map (fn [[_pc sessions]]
@@ -278,7 +279,8 @@
                :color {:field :type})]
 
     [:div.col-auto
-     (ui-common/title "Jugadores nuevos vs " recurrentes " (por juego)")
+     (ui-common/title [:span "Jugadores nuevos vs " recurrentes]
+                      "(por juego)")
      (vega/bar :values (->> sessions
                             (group-by :game)
                             (mapcat (fn [[game sessions]]
@@ -358,7 +360,7 @@
 
    [:div.row.my-4
     [:div.col-auto
-     (ui-common/title "Sesiones por jugador (sólo " recurrentes ")")
+     (ui-common/title [:span "Sesiones por jugador (sólo " recurrentes ")"])
      (vega/bar :values (let [freq (->> (group-by :pc sessions)
                                        (remove (fn [[_ sessions]]
                                                  (= 1 (count (set (map :date sessions))))))
@@ -420,7 +422,7 @@
                    :color {:field :game})]
 
     [:div.col-auto
-     (ui-common/title "Tiempo de juego (sólo " recurrentes ")")
+     (ui-common/title [:span "Tiempo de juego (sólo " recurrentes ")"])
      (vega/boxplot :values (->> sessions
                                 (group-by :game)
                                 (map (fn [[game sessions]]
