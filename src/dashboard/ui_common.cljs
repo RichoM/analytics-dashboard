@@ -7,7 +7,6 @@
             [utils.async :refer [go-try <?]]
             [oops.core :refer [oget oset! ocall!]]))
 
-
 (defn html [element]
   (let [element (vega/html html element)]
     (if (vector? element)
