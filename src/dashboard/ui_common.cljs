@@ -90,3 +90,7 @@
      (->> (rest text)
           (map (fn [s] [:small [:small s]]))
           (interpose [:br]))]))
+
+(def recurrentes
+  [:abbr {:title "Abrieron el juego en 2 días distintos"}
+   "recurrentes"])

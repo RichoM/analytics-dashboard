@@ -192,7 +192,39 @@
                            :type :nominal
                            :sort ["Sesiones" "Partidas"]}
                  :color {:field :store
-                         :type :nominal})]]
+                         :type :nominal})]
+
+      [:div.col-auto
+       (ui/title [:span "Jugadores nuevos vs " ui/recurrentes])
+       (vega/bar :values (->> sessions
+                              (remove #(nil? (:tags %)))
+                              (group-by (fn [{:keys [tags]}]
+                                          (->> tags
+                                               (set/intersection #{:steam :itch :gplay})
+                                               (first))))
+                              (mapcat (fn [[store sessions]]
+                                        (let [pcs (group-by :pc sessions)
+                                              freq-map (->> pcs
+                                                            (map (fn [[_pc sessions]]
+                                                                   (let [dates (set (map :date sessions))]
+                                                                     (count dates))))
+                                                            (frequencies))
+                                              total (count pcs)
+                                              new (get freq-map 1 0)
+                                              returning (reduce + (vals (dissoc freq-map 1)))]
+                                          [{:store store :type :new :count new
+                                            :percent (percent (/ new total))}
+                                           {:store store :type :returning :count returning
+                                            :percent (percent (/ returning total))}]))))
+                 :y {:field :store
+                     :type :nominal}
+                 :x {:field :count
+                     :type :quantitative
+                     :stack :normalize
+                     :axis {:format "%"}}
+                 :color {:field :type}
+                 :width 512
+                 :height 192)]]
 
      [:div.row.my-4
       [:div.col-auto

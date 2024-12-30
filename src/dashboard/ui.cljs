@@ -235,9 +235,7 @@
                                    countries/all-countries))
                     :color-scheme :purples)]])
 
-(def recurrentes
-  [:abbr {:title "Abrieron el juego en 2 días distintos"}
-   "recurrentes"])
+(def recurrentes ui-common/recurrentes)
 
 (defn players [{:keys [games sessions matches]}]
   [:div.row
