@@ -863,21 +863,23 @@
                          (update-ui! new))))
           (swap! !state assoc
                  :data data
-                 :filters {:games (:games data)
-                           :period :all-time
-                           :platforms (let [platforms (->> (:sessions data)
-                                                           (map :platform)
+                 :filters (or (:filters @!state) ; Keep the old filters
+                              {:games (:games data)
+                               :period :all-time
+                               :platforms (let [platforms (->> (:sessions data)
+                                                               (map :platform)
+                                                               (set))]
+                                            {:available platforms
+                                             :selected platforms})
+                               :players (let [players (->> (:matches data)
+                                                           (map :player_count)
                                                            (set))]
-                                        {:available platforms
-                                         :selected platforms})
-                           :players (let [players (->> (:matches data)
-                                                       (map :player_count)
-                                                       (set))]
-                                      {:selected players
-                                       :min 1
-                                       :max (apply max players)})
-                           :local? true
-                           :online? true})))))
+                                          {:selected players
+                                           :min 1
+                                           :max (apply max players)})
+                               :local? true
+                               :online? true}))
+          (update-filters! data)))))
 
 (defn clear-ui! []
   (ui-common/clear! (ui-common/get-element-by-id "content")))
