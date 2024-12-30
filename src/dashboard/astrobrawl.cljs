@@ -228,7 +228,7 @@
 
      [:div.row.my-4
       [:div.col-auto
-       (ui/title "Duración de la sesión" "(versión)")
+       (ui/title "Duración de la sesión" "(por versión)")
        (vega/boxplot :values (->> sessions
                                   (group-by (fn [{:keys [version]}]
                                               {:version (str/join "." (take 2 (parse-version version)))}))
