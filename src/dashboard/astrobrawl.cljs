@@ -286,6 +286,7 @@
                      :width 512
                      :x {:field :mode
                          :title "Tipo de partida"
+                         :axis {:labelAngle 0}
                          :sort {:field :version}}
                      :y {:title "Duración (minutos)"}
                      :xOffset {:field :version
