@@ -73,7 +73,7 @@
      width (assoc :width width)
      height (assoc :height height))])
 
-(defn boxplot [& {:keys [values x y color width height]}]
+(defn boxplot [& {:keys [values x y xOffset color width height]}]
   [:vega-lite
    (cond-> {:data {:values values},
             :encoding (cond-> {:x {:field :x, :type :nominal
@@ -81,7 +81,8 @@
                                    :axis {:labelAngle -35}}
                                :y {:title nil}}
                         x (update :x merge x)
-                        y (update :y merge y)),
+                        y (update :y merge y)
+                        xOffset (update :xOffset merge xOffset)),
             :layer [{:mark {:type :rule},
                      :encoding {:y {:field :lower, :type :quantitative, :scale {:zero false}},
                                 :y2 {:field :upper}}},

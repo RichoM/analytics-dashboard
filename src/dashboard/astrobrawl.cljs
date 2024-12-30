@@ -228,6 +228,41 @@
 
      [:div.row.my-4
       [:div.col-auto
+       (ui/title "Duración de la sesión" "(versión)")
+       (vega/boxplot :values (->> sessions
+                                  (group-by (fn [{:keys [version]}]
+                                              {:version (str/join "." (take 2 (parse-version version)))}))
+                                  (map (fn [[{:keys [version]} sessions]]
+                                         (assoc (ui/boxplot-stats (map :duration_m sessions))
+                                                :version version))))
+                     :width 256
+                     :x {:field :version
+                         :title "Versión"}
+                     :y {:title "Duración (minutos)"}
+                     :color {:field :version
+                             :title "Versión"})]
+      
+      [:div.col-auto
+       (ui/title "Duración de las partidas" "(por modo de juego y versión)")
+       (vega/boxplot :values (->> matches
+                                  (group-by (fn [match]
+                                              {:version (str/join "." (take 2 (match-version match)))
+                                               :mode (:mode match)}))
+                                  (map (fn [[{:keys [version mode]} matches]]
+                                         (assoc (ui/boxplot-stats (map :duration_m matches))
+                                                :version version
+                                                :mode mode))))
+                     :width 512
+                     :x {:field :mode
+                         :title "Tipo de partida"
+                         :sort {:field :version}}
+                     :y {:title "Duración (minutos)"}
+                     :xOffset {:field :version
+                               :type :nominal}
+                     :color {:field :version
+                             :title "Versión"})]]
+     [:div.row.my-4
+      [:div.col-auto
        (ui/title "Survival difficulty")
        (vega/bar :values (->> matches
                               (filter (comp #{"SURVIVAL"} :mode))
