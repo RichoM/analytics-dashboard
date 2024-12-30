@@ -79,10 +79,10 @@
                  :color {:field :type})]
       [:div.col-auto
        (ui/title "Tutorial success rate"
-                 "Habiendo jugado por lo menos 5 segundos")
+                 "Habiendo jugado por lo menos 10 segundos")
        (vega/arc :values (let [matches (->> (get matches-by-mode "TUTORIAL" [])
                                             (remove #(get-in % [:metadata :was_completed_before] false))
-                                            (remove #(< (:duration_s %) 5))
+                                            (remove #(< (:duration_s %) 10))
                                             (map :over?))
                                freq-map (frequencies matches)
                                total (count matches)]
@@ -127,9 +127,9 @@
                  :color {:field :type})]
       [:div.col-auto
        (ui/title "Duración del tutorial"
-                 "Habiendo jugado por lo menos 5 segundos")
+                 "Habiendo jugado por lo menos 10 segundos")
        (vega/bar :values (->> (get matches-by-mode "TUTORIAL" [])
-                              (remove #(< (:duration_s %) 5))
+                              (remove #(< (:duration_s %) 10))
                               (map (fn [{:keys [duration_m over? metadata]}]
                                      {:duration_m duration_m
                                       :type (case [over? (get metadata :was_completed_before false)]
