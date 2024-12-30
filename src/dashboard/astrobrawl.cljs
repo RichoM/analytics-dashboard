@@ -192,10 +192,12 @@
                            :type :nominal
                            :sort ["Sesiones" "Partidas"]}
                  :color {:field :store
-                         :type :nominal})]
-
+                         :type :nominal})]]
+     
+     [:div.row.my-4
       [:div.col-auto
-       (ui/title [:span "Jugadores nuevos vs " ui/recurrentes])
+       (ui/title [:span "Jugadores nuevos vs " ui/recurrentes]
+                 "(por store)")
        (vega/bar :values (->> sessions
                               (remove #(nil? (:tags %)))
                               (group-by (fn [{:keys [tags]}]
@@ -217,6 +219,35 @@
                                            {:store store :type :returning :count returning
                                             :percent (percent (/ returning total))}]))))
                  :y {:field :store
+                     :type :nominal}
+                 :x {:field :count
+                     :type :quantitative
+                     :stack :normalize
+                     :axis {:format "%"}}
+                 :color {:field :type}
+                 :width 512
+                 :height 192)]
+      [:div.col-auto
+       (ui/title [:span "Jugadores nuevos vs " ui/recurrentes]
+                 "(por versión)")
+       (vega/bar :values (->> sessions
+                              (group-by (fn [{:keys [version]}]
+                                          (str/join "." (take 2 (parse-version version)))))
+                              (mapcat (fn [[version sessions]]
+                                        (let [pcs (group-by :pc sessions)
+                                              freq-map (->> pcs
+                                                            (map (fn [[_pc sessions]]
+                                                                   (let [dates (set (map :date sessions))]
+                                                                     (count dates))))
+                                                            (frequencies))
+                                              total (count pcs)
+                                              new (get freq-map 1 0)
+                                              returning (reduce + (vals (dissoc freq-map 1)))]
+                                          [{:version version :type :new :count new
+                                            :percent (percent (/ new total))}
+                                           {:version version :type :returning :count returning
+                                            :percent (percent (/ returning total))}]))))
+                 :y {:field :version
                      :type :nominal}
                  :x {:field :count
                      :type :quantitative
