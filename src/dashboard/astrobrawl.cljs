@@ -1,5 +1,6 @@
 (ns dashboard.astrobrawl
   (:require [clojure.string :as str]
+            [clojure.set :as set]
             [dashboard.vega :as vega]
             [dashboard.ui-common :as ui]
             [utils.core :refer [indexed-by percent seek average]]))
@@ -13,7 +14,11 @@
       (with-meta o nil))
     (def matches-by-mode (group-by :mode matches)))
   
-  
+  (-> (first matches) meta :session)
+  (tap> (->> sessions
+             (remove #(nil? (:tags %)))
+             (mapv without-meta)
+             ))
   
   (tap> (->> (get matches-by-mode "TUTORIAL" [])
              (remove #(get-in % [:metadata :was_completed_before] false))
@@ -32,9 +37,9 @@
                              [false true] "ABANDONED - ALREADY COMPLETE"
                              [false false] "ABANDONED 1st TIME")}))
              (mapv without-meta)))
-  
-  (+ 677 151 39)
-  (+ 273 490 122)
+  (cond 
+    (contains? #{:steam} :itch) "itch.io"
+    (contains? #{:steam} :steam) "steam")
   )
 
 (defn older-version?
@@ -51,9 +56,11 @@
 (defn match-version [match]
   (-> match meta :session :version parse-version))
 
-(defn astrobrawl [{:keys [matches]}]
+(defn astrobrawl [{:keys [matches sessions]}]
   (let [matches (->> matches
                      (filter (comp #{"AstroBrawl"} :game)))
+        sessions (->> sessions
+                      (filter (comp #{"AstroBrawl"} :game)))
         matches-by-mode (group-by :mode matches)]
     [:div.row
      [:div.row.my-4
@@ -98,9 +105,8 @@
                      :bin {:binned false :step 1}
                      :title "Duración (segundos)"}
                  :y {:aggregate :count
-                     :title "Cantidad de partidas"}
-                 )]]
-     
+                     :title "Cantidad de partidas"})]]
+
      [:div.row.my-4
       [:div.col-auto
        (ui/title "Duración del tutorial")
@@ -138,6 +144,56 @@
                  :y {:aggregate :count
                      :title "Cantidad de partidas"}
                  :color {:field :type})]]
+     [:div.row.my-4
+      [:div.col-auto
+       (ui/title "Sesiones y partidas por store")
+       (vega/bar :values (concat (->> sessions
+                                      (keep (fn [{:keys [tags]}]
+                                              (when tags
+                                                {:type "Sesiones"
+                                                 :store (->> tags
+                                                             (set/intersection #{:steam :itch :gplay})
+                                                             (first))}))))
+                                 (->> matches
+                                      (keep (fn [match]
+                                              (when-some [tags (-> match meta :session :tags)]
+                                                {:type "Partidas"
+                                                 :store (->> tags
+                                                             (set/intersection #{:steam :itch :gplay})
+                                                             (first))})))))
+                 :height 256
+                 :x {:field :store
+                     :axis {:labelAngle 0}}
+                 :y {:aggregate :count
+                     :title "Cantidad"}
+                 :xOffset {:field :type
+                           :type :nominal
+                           :sort ["Sesiones" "Partidas"]}
+                 :color {:field :type
+                         :type :nominal
+                         :sort ["Sesiones" "Partidas"]})]
+      [:div.col-auto
+       (ui/title "Tiempo de juego total")
+       (vega/bar :values (->> matches
+                              (keep (fn [{:keys [duration_m] :as match}]
+                                      (when-some [tags (-> match meta :session :tags)]
+                                        {:duration_h (/ duration_m 60)
+                                         :store (->> tags
+                                                     (set/intersection #{:steam :itch :gplay})
+                                                     (first))}))))
+                 :width 128
+                 :height 256
+                 :x {:field :store
+                     :axis {:labelAngle 0}}
+                 :y {:field :duration_h
+                     :aggregate :sum
+                     :title "Horas de juego"}
+                 :xOffset {:field :type
+                           :type :nominal
+                           :sort ["Sesiones" "Partidas"]}
+                 :color {:field :store
+                         :type :nominal})]]
+
      [:div.row.my-4
       [:div.col-auto
        (ui/title "Survival difficulty")
