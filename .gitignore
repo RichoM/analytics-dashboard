@@ -27,3 +27,4 @@ pom.xml.asc
 /public/test
 
 /secrets
+.portal/
