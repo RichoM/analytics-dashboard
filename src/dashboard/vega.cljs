@@ -117,7 +117,7 @@
      width (assoc :width width)
      height (assoc :height height))])
 
-(defn bar [& {:keys [values x y color width height]}]
+(defn bar [& {:keys [values x y xOffset color width height]}]
   [:vega-lite
    (cond-> {:data {:values values}
             :encoding (cond-> {:x {:field :x
@@ -129,6 +129,7 @@
                                    :title nil}}
                         x (update :x merge x)
                         y (update :y merge y)
+                        xOffset (update :xOffset merge xOffset)
                         color (assoc :color (merge {:field :color
                                                     :title nil}
                                                    color)))
