@@ -345,20 +345,19 @@
                                               (count sessions)))
                                        (frequencies))
                              max (apply max (keys freq))]
-                         (map (fn [session-count]
-                                {:session-count session-count
-                                 :player-count (get freq session-count 0)})
-                              (range 1 (inc max))))
+                         (->> (range 1 (inc max))
+                              (map (fn [session-count]
+                                     {:session-count session-count
+                                      :player-count (get freq session-count 0)}))
+                              (remove (fn [{:keys [player-count]}]
+                                        (< player-count 2)))))
                :x {:field :session-count
                    :title "Sesiones"
                    :type :nominal
                    :axis {:labelAngle 0}}
                :y {:field :player-count
                    :title "Jugadores"
-                   ;:scale {:type :sqrt}
-                   })]]
-
-   [:div.row.my-4
+                   :scale {:type :sqrt}})]
     [:div.col-auto
      (ui-common/title [:span "Sesiones por jugador (sólo " recurrentes ")"])
      (vega/bar :values (let [freq (->> (group-by :pc sessions)
@@ -368,18 +367,19 @@
                                               (count sessions)))
                                        (frequencies))
                              max (apply max (keys freq))]
-                         (map (fn [session-count]
-                                {:session-count session-count
-                                 :player-count (get freq session-count 0)})
-                              (range 2 (inc max))))
+                         (->> (range 2 (inc max))
+                              (map (fn [session-count]
+                                     {:session-count session-count
+                                      :player-count (get freq session-count 0)}))
+                              (remove (fn [{:keys [player-count]}]
+                                        (< player-count 2)))))
                :x {:field :session-count
                    :title "Sesiones"
                    :type :nominal
                    :axis {:labelAngle 0}}
                :y {:field :player-count
                    :title "Jugadores"
-                   ;:scale {:type :sqrt}
-                   })]]
+                   :scale {:type :sqrt}})]]
 
 
    [:div.row.my-4
