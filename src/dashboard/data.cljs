@@ -28,7 +28,7 @@
                     duration_ms duration_s duration_m
                     pc ip country_code country
                     version platform match_count
-                    valid?])
+                    valid? tags])
 
 (defrecord Match [game code date time datetime
                   duration_ms duration_s duration_m
@@ -46,7 +46,7 @@
                      (gs/Spreadsheet. "1Yj79TCA0I-73SpLtBQztqNNJ8e-ANPYX5TpPLGZmqqI")])
 
 (defn enrich-session
-  [{:keys [game date time duration_ms match_count version platform country_code ip] :as session}]
+  [{:keys [game date time duration_ms match_count version platform country_code ip tags] :as session}]
   (let [duration-ms (parse-long duration_ms)]
     (map->Session
      (assoc session
@@ -56,6 +56,10 @@
             :duration_m (/ duration-ms 1000 60)
             :match_count (parse-long match_count)
             :country (countries/with-code country_code)
+            :tags (when tags
+                    (->> (str/split tags ",")
+                         (map (comp keyword str/trim))
+                         (set)))
             :valid? (and (> duration-ms 0)
                          (> match_count 0)
                          (not (contains? #{"::1" "127.0.0.1" "localhost"} ip))
@@ -86,7 +90,7 @@
 
 (defn get-sessions! [spreadsheet]
   (go
-    (try (->> (<? (gs/get-values! spreadsheet "sessions!A:K"))
+    (try (->> (<? (gs/get-values! spreadsheet "sessions!A:L"))
               (rows->maps)
               (map enrich-session)
               (deduplicate-ids))
