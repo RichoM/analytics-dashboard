@@ -94,15 +94,15 @@
                  :color {:field :type})]
       [:div.col-auto
        (ui/title "¿Cuándo deciden abandonar?"
-                 "Primeros 10 segundos del tutorial")
+                 "Primeros 5 minutos del tutorial")
        (vega/bar :values (->> (get matches-by-mode "TUTORIAL" [])
-                              (remove #(> (:duration_s %) 10))
+                              (remove #(> (:duration_m %) 5))
                               (remove :over?)
                               (remove #(get-in % [:metadata :was_completed_before] false))
                               (map #(select-keys % [:duration_s])))
                  :height 256
                  :x {:field :duration_s
-                     :bin {:binned false :step 1}
+                     :bin {:binned false :step 10}
                      :title "Duración (segundos)"}
                  :y {:aggregate :count
                      :title "Cantidad de partidas"})]]
