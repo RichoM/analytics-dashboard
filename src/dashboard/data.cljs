@@ -65,9 +65,10 @@
                          (not (contains? #{"::1" "127.0.0.1" "localhost"} ip))
                          (not (str/blank? version))
                          (not (str/includes? version "DEMO"))
+                         (not (str/includes? version "TEST"))
                          (not (str/includes? platform "Editor"))
 
-                         ; HACK(Richo): Discard AstroBrawl v2.1.0 since it's not public yet!
+                         ; HACK(Richo): Discard AstroBrawl v2.1.0 since it's not public
                          (if (= "astrobrawl" (str/lower-case game))
                            (not (str/starts-with? version "2.1.0"))
                            true))))))
@@ -109,7 +110,10 @@
                             (filter :valid?)
                             (take-while (fn [{:keys [datetime]}]
                                           (<= datetime begin-dt)))
-                            (last))]
+                            (last))
+        metadata (when metadata
+                   (js->clj (js/JSON.parse metadata)
+                            :keywordize-keys true))]
     (map->Match
      (assoc match
             :datetime begin-dt
@@ -119,14 +123,26 @@
             :local? (= local? "TRUE")
             :player_count (parse-long player_count)
             :over? (when over? (= over? "TRUE"))
-            :metadata (when metadata
-                        (js->clj (js/JSON.parse metadata)
-                                 :keywordize-keys true))
+            :metadata metadata
             :session (:id actual-session)
             :valid? (and (> duration-ms 0)
                          (some? actual-session)
                          (not (str/blank? (:version actual-session)))
-                         (not (str/includes? (:version actual-session) "DEMO")))))))
+                         (not (str/includes? (:version actual-session) "DEMO"))
+                         (not (str/includes? (:version actual-session) "TEST"))
+
+                         ; HACK(Richo): If the game is AstroBrawl and we have some metadata for the 
+                         ; match, we check the player_stats and discard matches where no player has
+                         ; moved for even 1 frame.
+                         (if (and (= "astrobrawl" (str/lower-case game))
+                                  (some? metadata))
+                           (not (every? (fn [stats]
+                                          (and (zero? (get stats :frames_running 0))
+                                               (zero? (get stats :frames_jumping 0))
+                                               (zero? (get stats :frames_aiming 0))
+                                               (zero? (get stats :frames_drawing 0))))
+                                        (vals (get metadata :player_stats))))
+                           true))))))
 
 (defn get-matches! [spreadsheet sessions-indexed]
   (go
