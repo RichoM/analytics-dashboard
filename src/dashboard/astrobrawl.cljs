@@ -485,23 +485,47 @@
                   :metadata_player_upgrade_longer_invisibility
                   :metadata_player_upgrade_longer_boots
                   :metadata_player_upgrade_longer_shield
-                  :metadata_player_upgrade_extra_rockets])
+                  :metadata_player_upgrade_extra_rockets
+                  
+                  :play_again_same_mode
+                  :play_again_different_mode])
 
 (defn- csv-rows [cols matches]
   (->> matches
        (mapv (fn [match]
                (mapv #(get match % 0) cols)))))
 
+(defn- assoc-play-again 
+  [matches-by-session {:keys [session mode] :as match}]
+  (let [related-matches (get matches-by-session session [])
+        next-matches (->> related-matches
+                          (drop-while #(not= % match))
+                          (drop 1)
+                          (vec))]
+    (assoc match
+           :play_again_same_mode
+           (or (->> next-matches
+                    (some #(= mode (:mode %))))
+               false)
+           
+           :play_again_different_mode
+           (or (->> next-matches
+                    (some #(not= mode (:mode %))))
+               false))))
+
 (defn- prepare-csv-data [{:keys [matches]}]
   (go
-    (let [chunks (partition-all 2500 matches)
+    (let [matches (->> matches
+                       (filter (comp #{"AstroBrawl"} :game))
+                       (remove (comp nil? :metadata))) 
+          matches-by-session (group-by :session matches)
+          chunks (partition-all 2500 matches)
           !rows (atom [(mapv #(subs (str %) 1) csv-columns)])]
       (doseq [chunk chunks]
         (<! (a/timeout 1))
         (swap! !rows concat
                (->> chunk
-                    (filter (comp #{"AstroBrawl"} :game))
-                    (remove (comp nil? :metadata))
+                    (map (partial assoc-play-again matches-by-session))
                     (mapcat split-metadata)
                     (map flat-metadata)
                     (map flat-session)
