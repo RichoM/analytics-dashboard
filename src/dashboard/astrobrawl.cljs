@@ -196,7 +196,27 @@
                            :type :nominal
                            :sort ["Sesiones" "Partidas"]}
                  :color {:field :store
-                         :type :nominal})]]
+                         :type :nominal})]
+      [:div.col-auto
+       (ui/title "Partidas por sesión" "(por versión, excluyendo tutorial)")
+       (vega/bar :values (->> matches
+                              (remove (comp #{"TUTORIAL"} :mode))
+                              (group-by (fn [match]
+                                          (str/join "." (take 2 (match-version match)))))
+                              (mapv (fn [[version matches]]
+                                      (let [session-count (->> matches
+                                                               (map :session)
+                                                               (set)
+                                                               (count))
+                                            match-count (count matches)]
+                                        {:version version
+                                         :sessions session-count
+                                         :matches match-count
+                                         :ratio (/ match-count session-count)}))))
+                 :width 192
+                 :x {:field :version}
+                 :y {:field :ratio}
+                 :color {:field :version})]]
   
      [:div.row.my-4
       [:div.col-auto
@@ -276,7 +296,7 @@
                      :y {:title "Duración (minutos)"}
                      :color {:field :version
                              :title "Versión"})]
-  
+
       [:div.col-auto
        (ui/title "Duración de las partidas" "(por modo de juego y versión)")
        (vega/boxplot :values (->> matches
@@ -296,41 +316,7 @@
                      :xOffset {:field :version
                                :type :nominal}
                      :color {:field :version
-                             :title "Versión"})]
-      [:div.row.my-4
-       (ui/title "Partidas por sesión" "(por versión, excluyendo tutorial)")
-       (vega/bar :values (->> matches
-                              (remove (comp #{"TUTORIAL"} :mode))
-                              (group-by (fn [match]
-                                          (str/join "." (take 2 (match-version match)))))
-                              (mapv (fn [[version matches]]
-                                      (let [session-count (->> matches
-                                                               (map :session)
-                                                               (set)
-                                                               (count))
-                                            match-count (count matches)]
-                                        {:version version
-                                         :sessions session-count
-                                         :matches match-count
-                                         :ratio (/ match-count session-count)}))))
-                 :width 192
-                 :x {:field :version}
-                 :y {:field :ratio}
-                 :color {:field :version})]
-      #_[:div.row.my-4
-         (ui/title "Partidas por sesión" "(por versión, excluyendo tutorial)")
-         (vega/bar :values (let [matches-by-session (group-by :session matches)]
-                             (->> sessions
-                                  (group-by (fn [session]
-                                              (str/join "." (take 2 (parse-version (:version session))))))
-                                  (mapv (fn [[version sessions]]
-                                          (map (fn [session]
-                                                 (let [matches (get matches-by-session (:id session) [])
-                                                       ratio])))))))
-                   :width 192
-                   :x {:field :version}
-                   :y {:field :ratio}
-                   :color {:field :version})]]
+                             :title "Versión"})]]
      [:div.row.my-4
       [:div.col-auto
        (ui/title "Survival difficulty")
