@@ -270,10 +270,12 @@
                              total (count pcs)
                              new (get freq-map 1 0)
                              returning (reduce + (vals (dissoc freq-map 1)))]
-                         [{:type :new :count new
-                           :percent (percent (/ new total))}
-                          {:type :returning :count returning
-                           :percent (percent (/ returning total))}])
+                         (if (zero? total)
+                           []
+                           [{:type :new :count new
+                             :percent (percent (/ new total))}
+                            {:type :returning :count returning
+                             :percent (percent (/ returning total))}]))
                :color {:field :type})]
 
     [:div.col-auto
@@ -291,10 +293,12 @@
                                             total (count pcs)
                                             new (get freq-map 1 0)
                                             returning (reduce + (vals (dissoc freq-map 1)))]
-                                        [{:game game :type :new :count new
-                                          :percent (percent (/ new total))}
-                                         {:game game :type :returning :count returning
-                                          :percent (percent (/ returning total))}]))))
+                                        (if (zero? total)
+                                          []
+                                          [{:game game :type :new :count new
+                                            :percent (percent (/ new total))}
+                                           {:game game :type :returning :count returning
+                                            :percent (percent (/ returning total))}])))))
                :y {:field :game
                    :type :nominal}
                :x {:field :count

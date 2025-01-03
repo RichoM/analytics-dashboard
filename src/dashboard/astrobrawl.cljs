@@ -71,11 +71,13 @@
                                             (map :over?))
                                freq-map (frequencies matches)
                                total (count matches)]
-                           (map (fn [[over? count]]
-                                  {:type (if over? "FINISHED" "ABANDONED")
-                                   :count count
-                                   :percent (percent (/ count total))})
-                                freq-map))
+                           (if (zero? total)
+                             []
+                             (map (fn [[over? count]]
+                                    {:type (if over? "FINISHED" "ABANDONED")
+                                     :count count
+                                     :percent (percent (/ count total))})
+                                  freq-map)))
                  :color {:field :type})]
       [:div.col-auto
        (ui/title "Tutorial success rate"
@@ -86,11 +88,13 @@
                                             (map :over?))
                                freq-map (frequencies matches)
                                total (count matches)]
-                           (map (fn [[over? count]]
-                                  {:type (if over? "FINISHED" "ABANDONED")
-                                   :count count
-                                   :percent (percent (/ count total))})
-                                freq-map))
+                           (if (zero? total)
+                             []
+                             (map (fn [[over? count]]
+                                    {:type (if over? "FINISHED" "ABANDONED")
+                                     :count count
+                                     :percent (percent (/ count total))})
+                                  freq-map)))
                  :color {:field :type})]
       [:div.col-auto
        (ui/title "¿Cuándo deciden abandonar?"
@@ -99,25 +103,25 @@
                               (remove #(> (:duration_m %) 5))
                               (remove :over?)
                               (remove #(get-in % [:metadata :was_completed_before] false))
-                              (map #(select-keys % [:duration_s])))
+                              (mapv #(select-keys % [:duration_s])))
                  :height 256
                  :x {:field :duration_s
                      :bin {:binned false :step 10}
                      :title "Duración (segundos)"}
                  :y {:aggregate :count
                      :title "Cantidad de partidas"})]]
-
+  
      [:div.row.my-4
       [:div.col-auto
        (ui/title "Duración del tutorial")
        (vega/bar :values (->> (get matches-by-mode "TUTORIAL" [])
-                              (map (fn [{:keys [duration_m over? metadata]}]
-                                     {:duration_m duration_m
-                                      :type (case [over? (get metadata :was_completed_before false)]
-                                              [true true] "ALREADY COMPLETE"
-                                              [true false] "FINISHED 1st TIME"
-                                              [false true] "ALREADY COMPLETE"
-                                              [false false] "ABANDONED")})))
+                              (mapv (fn [{:keys [duration_m over? metadata]}]
+                                      {:duration_m duration_m
+                                       :type (case [over? (get metadata :was_completed_before false)]
+                                               [true true] "ALREADY COMPLETE"
+                                               [true false] "FINISHED 1st TIME"
+                                               [false true] "ALREADY COMPLETE"
+                                               [false false] "ABANDONED")})))
                  :height 256
                  :x {:field :duration_m
                      :bin {:binned false :step 1}
@@ -130,13 +134,13 @@
                  "Habiendo jugado por lo menos 10 segundos")
        (vega/bar :values (->> (get matches-by-mode "TUTORIAL" [])
                               (remove #(< (:duration_s %) 10))
-                              (map (fn [{:keys [duration_m over? metadata]}]
-                                     {:duration_m duration_m
-                                      :type (case [over? (get metadata :was_completed_before false)]
-                                              [true true] "ALREADY COMPLETE"
-                                              [true false] "FINISHED 1st TIME"
-                                              [false true] "ALREADY COMPLETE"
-                                              [false false] "ABANDONED")})))
+                              (mapv (fn [{:keys [duration_m over? metadata]}]
+                                      {:duration_m duration_m
+                                       :type (case [over? (get metadata :was_completed_before false)]
+                                               [true true] "ALREADY COMPLETE"
+                                               [true false] "FINISHED 1st TIME"
+                                               [false true] "ALREADY COMPLETE"
+                                               [false false] "ABANDONED")})))
                  :height 256
                  :x {:field :duration_m
                      :bin {:binned false :step 1}
@@ -193,7 +197,7 @@
                            :sort ["Sesiones" "Partidas"]}
                  :color {:field :store
                          :type :nominal})]]
-     
+  
      [:div.row.my-4
       [:div.col-auto
        (ui/title [:span "Jugadores nuevos vs " ui/recurrentes]
@@ -256,7 +260,7 @@
                  :color {:field :type}
                  :width 512
                  :height 192)]]
-
+  
      [:div.row.my-4
       [:div.col-auto
        (ui/title "Duración de la sesión" "(por versión)")
@@ -272,7 +276,7 @@
                      :y {:title "Duración (minutos)"}
                      :color {:field :version
                              :title "Versión"})]
-      
+  
       [:div.col-auto
        (ui/title "Duración de las partidas" "(por modo de juego y versión)")
        (vega/boxplot :values (->> matches
@@ -292,7 +296,41 @@
                      :xOffset {:field :version
                                :type :nominal}
                      :color {:field :version
-                             :title "Versión"})]]
+                             :title "Versión"})]
+      [:div.row.my-4
+       (ui/title "Partidas por sesión" "(por versión, excluyendo tutorial)")
+       (vega/bar :values (->> matches
+                              (remove (comp #{"TUTORIAL"} :mode))
+                              (group-by (fn [match]
+                                          (str/join "." (take 2 (match-version match)))))
+                              (mapv (fn [[version matches]]
+                                      (let [session-count (->> matches
+                                                               (map :session)
+                                                               (set)
+                                                               (count))
+                                            match-count (count matches)]
+                                        {:version version
+                                         :sessions session-count
+                                         :matches match-count
+                                         :ratio (/ match-count session-count)}))))
+                 :width 192
+                 :x {:field :version}
+                 :y {:field :ratio}
+                 :color {:field :version})]
+      #_[:div.row.my-4
+         (ui/title "Partidas por sesión" "(por versión, excluyendo tutorial)")
+         (vega/bar :values (let [matches-by-session (group-by :session matches)]
+                             (->> sessions
+                                  (group-by (fn [session]
+                                              (str/join "." (take 2 (parse-version (:version session))))))
+                                  (mapv (fn [[version sessions]]
+                                          (map (fn [session]
+                                                 (let [matches (get matches-by-session (:id session) [])
+                                                       ratio])))))))
+                   :width 192
+                   :x {:field :version}
+                   :y {:field :ratio}
+                   :color {:field :version})]]
      [:div.row.my-4
       [:div.col-auto
        (ui/title "Survival difficulty")
