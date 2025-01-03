@@ -403,6 +403,7 @@
 (def csv-columns [:date
                   :time
                   :mode
+                  :code
                   :player_count
                   :local?
                   :over?
