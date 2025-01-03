@@ -18,6 +18,12 @@
 (comment
   (require '[portal.web :as p])
   (add-tap p/submit)
+
+  (do
+    (def games (-> @!state :data :games))
+    (def sessions (-> @!state :data :sessions))
+    (def matches (-> @!state :data :matches)))
+  
   )
 
 (defonce !state (atom {:charts {:sessions-and-matches {}
@@ -831,6 +837,9 @@
        [:div#summary-title.navbar-brand.mb-1.me-5.h1 ""]
        [:div#summary-label.col]
        [:form.d-flex
+        [:button#csv-button.btn.btn-primary.me-2
+         {:type "button"}
+         [:i.fa-solid.fa-download.pe-2] "CSV (astrobrawl matches)"]
         [:button#backup-button.btn.btn-primary.me-2.d-none
          {:type "button"}
          [:i.fa-solid.fa-download.pe-2] "Backup"]
@@ -859,6 +868,8 @@
             (ui-common/append! main-container))
           (doto (ui-common/get-element-by-id "backup-button")
             (bs/on-click download-backup!))
+          (doto (ui-common/get-element-by-id "csv-button")
+            (bs/on-click #(ab/download-csv! (:data @!state))))
           (add-watch !state ::state-change
                      (fn [_ _ old new]
                        (if (not= (:filters old)
@@ -887,96 +898,3 @@
 
 (defn clear-ui! []
   (ui-common/clear! (ui-common/get-element-by-id "content")))
-
-(comment
-
-
-  (-> @!state :filters)
-
-  (tap> (->> (-> @!state :data :matches)
-             ;(filter (comp #{"DEATHMATCH"} :mode))
-             (filter (fn [{:keys [metadata]}]
-                       (and ;(> (count (keys (:player_stats metadata))) 1)
-                        (> (reduce + (vals (:player_level metadata ))) 0))))             
-             (take 100)
-             (vec)))
-
-  (tap> (filterv (comp #{"DEATHMATCH"} :mode) matches))
-
-  (do
-    (def games (-> @!state :data :games))
-    (def sessions (-> @!state :data :sessions))
-    (def matches (-> @!state :data :matches)))
-
-  (first sessions)
-
-  ()
-
-  (- (count matches)
-     (->> matches
-          (map :id)))
-
-  (- (count sessions)
-     (->> sessions
-          (map (comp :original-id meta))
-          (set)
-          (count)))
-
-  (-> (filter (fn [{:keys [session]}]
-                (= "27272727-2727-4727-a727-272727272727.0" session))
-              (-> @!state :data :matches))
-      (first)
-      (meta)
-      :session)
-
-  (filter (fn [{:keys [game]}]
-            (= game "AstroBrawl"))
-          (-> @!state :data :sessions))
-
-  (filter (fn [session]
-            (= "27272727-2727-4727-a727-272727272727"
-               (:original-id (meta session))))
-          (-> @!state :data :sessions))
-
-  (type (-> @!state :data :matches))
-  (-> (first matches) meta :session :pc)
-  (set (map :platform sessions))
-  (first matches)
-
-  (->> (group-by :pc sessions)
-       (map (fn [[pc sessions]])))
-
-  (->> sessions
-       (filter (comp #{"cd7ee4e9-f3fe-4664-a280-2a2977b40a44"} :pc)))
-
-
-  (->> (group-by :pc sessions)
-       (map (fn [[pc sessions]]
-              {:pc pc :count (count sessions)
-               ;:play-time (reduce + (map :duration_m sessions))
-               ;:sessions sessions
-               }))
-       (sort-by - :count)
-       (take 20))
-
-       ;(frequencies)
-       ;(ui-common/boxplot-stats))
-
-
-  (let [users (set (map :pc sessions))])
-
-  (keys @!state)
-  (first matches)
-  (first sessions)
-
-  (def astrobrawl-sessions (filter (comp #{"AstroBrawl"} :game)
-                                   sessions))
-  (def astrobrawl-matches (filter (comp #{"AstroBrawl"} :game)
-                                  matches))
-
-  (count astrobrawl-matches)
-  (count astrobrawl-sessions)
-
-  (/ (count astrobrawl-sessions) (count sessions))
-  (/ (count astrobrawl-matches) (count matches))
-  )
