@@ -836,9 +836,6 @@
        [:div#summary-title.navbar-brand.mb-1.me-5.h1 ""]
        [:div#summary-label.col]
        [:form.d-flex
-        [:button#csv-button.btn.btn-primary.me-2
-         {:type "button"}
-         [:i.fa-solid.fa-download.pe-2] "CSV (astrobrawl matches)"]
         [:button#backup-button.btn.btn-primary.me-2.d-none
          {:type "button"}
          [:i.fa-solid.fa-download.pe-2] "Backup"]
@@ -867,8 +864,6 @@
             (ui-common/append! main-container))
           (doto (ui-common/get-element-by-id "backup-button")
             (bs/on-click download-backup!))
-          (doto (ui-common/get-element-by-id "csv-button")
-            (bs/on-click #(ab/download-csv! (:data @!state))))
           (add-watch !state ::state-change
                      (fn [_ _ old new]
                        (if (not= (:filters old)
