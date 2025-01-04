@@ -191,45 +191,58 @@
                   :metadata_player_upgrade_longer_boots
                   :metadata_player_upgrade_longer_shield
                   :metadata_player_upgrade_extra_rockets
-                  
+
                   :play_again_same_mode
-                  :play_again_different_mode])
+                  :play_again_different_mode
+                  :play_again_different_session
+                  :play_again])
 
 (defn- csv-rows [cols matches]
   (->> matches
        (mapv (fn [match]
                (mapv #(get match % 0) cols)))))
 
-(defn- assoc-play-again 
-  [matches-by-session {:keys [session mode] :as match}]
-  (let [related-matches (get matches-by-session session [])
+(defn- assoc-play-again
+  [matches-by-pc {:keys [session mode] :as match}]
+  (let [session-pc (-> match meta :session :pc)
+        related-matches (get matches-by-pc session-pc [])
         next-matches (->> related-matches
                           (drop-while #(not= % match))
-                          (drop 1)
-                          (vec))]
+                          (drop 1))
+        next-matches-same-session (->> next-matches
+                                       (filter #(= session (:session %)))
+                                       (vec))
+        next-matches-different-session (->> next-matches
+                                            (remove #(= session (:session %)))
+                                            (vec))
+        play_again_same_mode? (or (->> next-matches-same-session
+                                       (some #(= mode (:mode %))))
+                                  false)
+        play_again_different_mode? (or (->> next-matches-same-session
+                                            (some #(not= mode (:mode %))))
+                                       false)
+        play_again_different_session? (> (count next-matches-different-session)
+                                         1)]
     (assoc match
-           :play_again_same_mode
-           (or (->> next-matches
-                    (some #(= mode (:mode %))))
-               false)
-           
-           :play_again_different_mode
-           (or (->> next-matches
-                    (some #(not= mode (:mode %))))
-               false))))
+           :play_again_same_mode play_again_same_mode?
+           :play_again_different_mode play_again_different_mode?
+           :play_again_different_session play_again_different_session?
+           :play_again (or play_again_same_mode?
+                           play_again_different_mode?
+                           play_again_different_session?))))
 
 (defn- prepare-csv-data [matches]
   (go
     (let [matches (->> matches
                        (remove (comp nil? :metadata)))
-          matches-by-session (group-by :session matches)
+          matches-by-pc (group-by #(-> % meta :session :pc) matches)
           chunks (partition-all 1000 matches)
           !rows (atom [(mapv #(subs (str %) 1) csv-columns)])]
       (doseq [chunk chunks]
         (<! (a/timeout 1))
         (swap! !rows concat
                (->> chunk
-                    (map (partial assoc-play-again matches-by-session))
+                    (map (partial assoc-play-again matches-by-pc))
                     (mapcat split-metadata)
                     (map flat-metadata)
                     (map flat-session)
