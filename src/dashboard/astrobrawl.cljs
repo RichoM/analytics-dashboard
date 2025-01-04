@@ -30,6 +30,13 @@
         matches-by-mode (group-by :mode matches)]
     [:div.container-fluid
      [:div.row.my-4
+      [:div.alert.alert-light
+       (doto (crate/html [:button#csv-button.btn.btn-primary
+                          {:type "button"}
+                          [:i.fa-solid.fa-download.pe-2] "Export CSV"])
+         (bs/on-click #(export/download-csv! matches)))]]
+     
+     [:div.row.my-4
       [:div.col-auto
        (ui/title "Tutorial success rate")
        (vega/arc :values (let [matches (->> (get matches-by-mode "TUTORIAL" [])
