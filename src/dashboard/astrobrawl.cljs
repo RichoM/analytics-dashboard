@@ -3,7 +3,7 @@
             [clojure.set :as set]
             [crate.core :as crate]
             [dashboard.vega :as vega]
-            [dashboard.ui-common :as ui]
+            [dashboard.ui-common :as uic]
             [utils.bootstrap :as bs]
             [utils.core :refer [indexed-by percent seek average]]
             [dashboard.astrobrawl-export :as export]))
@@ -38,7 +38,7 @@
      
      [:div.row.my-4
       [:div.col-auto
-       (ui/title "Tutorial success rate")
+       (uic/title "Tutorial success rate")
        (vega/arc :values (let [matches (->> (get matches-by-mode "TUTORIAL" [])
                                             (remove #(get-in % [:metadata :was_completed_before] false))
                                             (map :over?))
@@ -53,8 +53,8 @@
                                   freq-map)))
                  :color {:field :type})]
       [:div.col-auto
-       (ui/title "Tutorial success rate"
-                 "Habiendo jugado por lo menos 10 segundos")
+       (uic/title "Tutorial success rate"
+                  "Habiendo jugado por lo menos 10 segundos")
        (vega/arc :values (let [matches (->> (get matches-by-mode "TUTORIAL" [])
                                             (remove #(get-in % [:metadata :was_completed_before] false))
                                             (remove #(< (:duration_s %) 10))
@@ -70,8 +70,8 @@
                                   freq-map)))
                  :color {:field :type})]
       [:div.col-auto
-       (ui/title "¿Cuándo deciden abandonar?"
-                 "Primeros 5 minutos del tutorial")
+       (uic/title "¿Cuándo deciden abandonar?"
+                  "Primeros 5 minutos del tutorial")
        (vega/bar :values (->> (get matches-by-mode "TUTORIAL" [])
                               (remove #(> (:duration_m %) 5))
                               (remove :over?)
@@ -86,7 +86,7 @@
   
      [:div.row.my-4
       [:div.col-auto
-       (ui/title "Duración del tutorial")
+       (uic/title "Duración del tutorial")
        (vega/bar :values (->> (get matches-by-mode "TUTORIAL" [])
                               (mapv (fn [{:keys [duration_m over? metadata]}]
                                       {:duration_m duration_m
@@ -103,8 +103,8 @@
                      :title "Cantidad de partidas"}
                  :color {:field :type})]
       [:div.col-auto
-       (ui/title "Duración del tutorial"
-                 "Habiendo jugado por lo menos 10 segundos")
+       (uic/title "Duración del tutorial"
+                  "Habiendo jugado por lo menos 10 segundos")
        (vega/bar :values (->> (get matches-by-mode "TUTORIAL" [])
                               (remove #(< (:duration_s %) 10))
                               (mapv (fn [{:keys [duration_m over? metadata]}]
@@ -123,7 +123,7 @@
                  :color {:field :type})]]
      [:div.row.my-4
       [:div.col-auto
-       (ui/title "Sesiones y partidas por store")
+       (uic/title "Sesiones y partidas por store")
        (vega/bar :values (concat (->> sessions
                                       (keep (fn [{:keys [tags]}]
                                               (when tags
@@ -150,7 +150,7 @@
                          :type :nominal
                          :sort ["Sesiones" "Partidas"]})]
       [:div.col-auto
-       (ui/title "Tiempo de juego total")
+       (uic/title "Tiempo de juego total")
        (vega/bar :values (->> matches
                               (keep (fn [{:keys [duration_m] :as match}]
                                       (when-some [tags (-> match meta :session :tags)]
@@ -171,7 +171,7 @@
                  :color {:field :store
                          :type :nominal})]
       [:div.col-auto
-       (ui/title "Partidas por sesión" "(por versión, excluyendo tutorial)")
+       (uic/title "Partidas por sesión" "(por versión, excluyendo tutorial)")
        (vega/bar :values (->> matches
                               (remove (comp #{"TUTORIAL"} :mode))
                               (group-by (fn [match]
@@ -193,8 +193,8 @@
   
      [:div.row.my-4
       [:div.col-auto
-       (ui/title [:span "Jugadores nuevos vs " ui/recurrentes]
-                 "(por store)")
+       (uic/title [:span "Jugadores nuevos vs " uic/recurrentes]
+                  "(por store)")
        (vega/bar :values (->> sessions
                               (remove #(nil? (:tags %)))
                               (group-by (fn [{:keys [tags]}]
@@ -225,8 +225,8 @@
                  :width 512
                  :height 192)]
       [:div.col-auto
-       (ui/title [:span "Jugadores nuevos vs " ui/recurrentes]
-                 "(por versión)")
+       (uic/title [:span "Jugadores nuevos vs " uic/recurrentes]
+                  "(por versión)")
        (vega/bar :values (->> sessions
                               (group-by (fn [{:keys [version]}]
                                           (str/join "." (take 2 (parse-version version)))))
@@ -256,12 +256,12 @@
   
      [:div.row.my-4
       [:div.col-auto
-       (ui/title "Duración de la sesión" "(por versión)")
+       (uic/title "Duración de la sesión" "(por versión)")
        (vega/boxplot :values (->> sessions
                                   (group-by (fn [{:keys [version]}]
                                               {:version (str/join "." (take 2 (parse-version version)))}))
                                   (map (fn [[{:keys [version]} sessions]]
-                                         (assoc (ui/boxplot-stats (map :duration_m sessions))
+                                         (assoc (uic/boxplot-stats (map :duration_m sessions))
                                                 :version version))))
                      :width 256
                      :x {:field :version
@@ -271,13 +271,13 @@
                              :title "Versión"})]
 
       [:div.col-auto
-       (ui/title "Duración de las partidas" "(por modo de juego y versión)")
+       (uic/title "Duración de las partidas" "(por modo de juego y versión)")
        (vega/boxplot :values (->> matches
                                   (group-by (fn [match]
                                               {:version (str/join "." (take 2 (match-version match)))
                                                :mode (:mode match)}))
                                   (map (fn [[{:keys [version mode]} matches]]
-                                         (assoc (ui/boxplot-stats (map :duration_m matches))
+                                         (assoc (uic/boxplot-stats (map :duration_m matches))
                                                 :version version
                                                 :mode mode))))
                      :width 512
@@ -292,7 +292,7 @@
                              :title "Versión"})]]
      [:div.row.my-4
       [:div.col-auto
-       (ui/title "Survival difficulty")
+       (uic/title "Survival difficulty")
        (vega/bar :values (->> matches
                               (filter (comp #{"SURVIVAL"} :mode))
                               (keep :metadata)
