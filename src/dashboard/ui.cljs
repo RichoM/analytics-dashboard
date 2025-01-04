@@ -9,7 +9,7 @@
             [utils.frequencies :as f]
             [utils.core :refer [indexed-by percent seek average]]
             [crate.core :as crate]
-            [dashboard.ui-common :as ui-common]
+            [dashboard.ui-common :as uic]
             [dashboard.vega :as vega]
             [dashboard.data :as data]
             [dashboard.countries :as countries]
@@ -108,7 +108,7 @@
 (defn sessions-and-matches [{:keys [sessions matches]}]
   [:div.container-fluid
    [:div.my-4.col-auto
-    (ui-common/title "Sesiones y partidas por día")
+    (uic/title "Sesiones y partidas por día")
     (vega/line :values (data/sessions-by-day sessions matches)
                :width 1024 ; :height 512
                :x {:field :date
@@ -121,7 +121,7 @@
                        :title "Tipo"})]
 
    [:div.my-4.col-auto
-    (ui-common/title "Partidas por sesión (promedio diario)")
+    (uic/title "Partidas por sesión (promedio diario)")
     (vega/line :values (data/matches-per-session sessions matches)
                :width 1024 ; :height 512
                :x {:field :date
@@ -134,11 +134,11 @@
                        :title "Juego"})]
    [:div.row.my-4
     [:div.col-auto
-     (ui-common/title "Duración de las sesiones")
+     (uic/title "Duración de las sesiones")
      (vega/boxplot :values (->> sessions
                                 (group-by :game)
                                 (map (fn [[game sessions]]
-                                       (assoc (ui-common/boxplot-stats (map :duration_m sessions))
+                                       (assoc (uic/boxplot-stats (map :duration_m sessions))
                                               :game game))))
                    :width 256
                    :x {:field :game}
@@ -146,12 +146,12 @@
                    :color {:field :game :title "Juego"})]
 
     [:div.col-auto
-     (ui-common/title "Duración de las partidas")
+     (uic/title "Duración de las partidas")
      (vega/boxplot :values (->> matches
-                                (map ui-common/normalize-mode)
+                                (map uic/normalize-mode)
                                 (group-by #(select-keys % [:game :mode]))
                                 (map (fn [[{:keys [game mode]} matches]]
-                                       (assoc (ui-common/boxplot-stats (map :duration_m matches))
+                                       (assoc (uic/boxplot-stats (map :duration_m matches))
                                               :game game
                                               :mode mode))))
                    :width 512
@@ -164,7 +164,7 @@
 
    [:div.row.my-4
     [:div.col-4
-     (ui-common/title "Sesiones por plataforma")
+     (uic/title "Sesiones por plataforma")
      (vega/arc :values (let [platforms (map :platform sessions)
                              freq-map (frequencies platforms)
                              total (count platforms)]
@@ -175,7 +175,7 @@
                :color {:field :type})]
 
     [:div.col-4
-     (ui-common/title "Partidas por plataforma")
+     (uic/title "Partidas por plataforma")
      (vega/arc :values (let [platforms (map (comp :platform :session meta) matches)
                              freq-map (frequencies platforms)
                              total (count platforms)]
@@ -187,7 +187,7 @@
 
    [:div.row.my-4
     [:div.col-4
-     (ui-common/title "Sesiones por versión")
+     (uic/title "Sesiones por versión")
      (vega/bar :values (->> sessions
                             (map #(select-keys % [:game :version]))
                             (group-by :game)
@@ -201,7 +201,7 @@
                :width 256 :height 256)]
 
     [:div.col-4
-     (ui-common/title "Partidas por versión")
+     (uic/title "Partidas por versión")
      (vega/bar :values (->> matches
                             (map (fn [match]
                                    (assoc match :version (-> match meta :session :version))))
@@ -217,7 +217,7 @@
                :width 256 :height 256)]]
 
    [:div.my-4.col-auto
-    (ui-common/title "Sesiones por país")
+    (uic/title "Sesiones por país")
     (vega/world-map :values (let [country-map (-> (group-by :country sessions)
                                                   (update-vals count))]
                               (map (fn [country]
@@ -229,7 +229,7 @@
                                    countries/all-countries)))]
 
    [:div.my-4.col-auto
-    (ui-common/title "Partidas por país")
+    (uic/title "Partidas por país")
     (vega/world-map :values (let [country-map (-> (group-by (comp :country :session meta) matches)
                                                   (update-vals count))]
                               (map (fn [country]
@@ -241,12 +241,12 @@
                                    countries/all-countries))
                     :color-scheme :purples)]])
 
-(def recurrentes ui-common/recurrentes)
+(def recurrentes uic/recurrentes)
 
 (defn players [{:keys [games sessions matches]}]
   [:div.container-fluid
    [:div.my-4.col-auto
-    (ui-common/title "Jugadores por día")
+    (uic/title "Jugadores por día")
     (vega/bar :values (->> sessions
                            (data/player-count-by-day)
                            (mapcat (fn [{:keys [date new returning]}]
@@ -264,8 +264,8 @@
 
    [:div.my-4.row
     [:div.col-auto
-     (ui-common/title [:span "Jugadores nuevos vs " recurrentes]
-                      "(TOTAL)")
+     (uic/title [:span "Jugadores nuevos vs " recurrentes]
+                "(TOTAL)")
      (vega/arc :values (let [pcs (group-by :pc sessions)
                              freq-map (->> pcs
                                            (map (fn [[_pc sessions]]
@@ -284,8 +284,8 @@
                :color {:field :type})]
 
     [:div.col-auto
-     (ui-common/title [:span "Jugadores nuevos vs " recurrentes]
-                      "(por juego)")
+     (uic/title [:span "Jugadores nuevos vs " recurrentes]
+                "(por juego)")
      (vega/bar :values (->> sessions
                             (group-by :game)
                             (mapcat (fn [[game sessions]]
@@ -316,7 +316,7 @@
 
    [:div.row.my-4
     [:div.col-auto
-     (ui-common/title "Jugadores por plataforma")
+     (uic/title "Jugadores por plataforma")
      (vega/arc :values (let [platforms-by-pc (update-vals (group-by :pc sessions)
                                                           (fn [sessions]
                                                             (:platform (first sessions))))
@@ -329,7 +329,7 @@
                :color {:field :type})]
 
     [:div.col-auto
-     (ui-common/title "Jugadores por juego")
+     (uic/title "Jugadores por juego")
      (vega/arc :values (let [games-by-pc (update-vals (group-by :pc sessions)
                                                       (fn [sessions]
                                                         (let [games (set (map :game sessions))]
@@ -346,7 +346,7 @@
 
    [:div.row.my-4
     [:div.col-auto
-     (ui-common/title "Sesiones por jugador")
+     (uic/title "Sesiones por jugador")
      (vega/bar :values (let [freq (->> (group-by :pc sessions)
                                        (map (fn [[pc sessions]]
                                               (count sessions)))
@@ -366,7 +366,7 @@
                    :title "Jugadores"
                    :scale {:type :sqrt}})]
     [:div.col-auto
-     (ui-common/title [:span "Sesiones por jugador (sólo " recurrentes ")"])
+     (uic/title [:span "Sesiones por jugador (sólo " recurrentes ")"])
      (vega/bar :values (let [freq (->> (group-by :pc sessions)
                                        (remove (fn [[_ sessions]]
                                                  (= 1 (count (set (map :date sessions))))))
@@ -391,7 +391,7 @@
 
    [:div.row.my-4
     [:div.col-auto
-     (ui-common/title "Tiempo de juego (promedio)")
+     (uic/title "Tiempo de juego (promedio)")
      (vega/bar :values (->> sessions
                             (group-by :game)
                             (map (fn [[game sessions]]
@@ -411,14 +411,14 @@
                :color {:field :game})]
 
     [:div.col-auto
-     (ui-common/title "Tiempo de juego")
+     (uic/title "Tiempo de juego")
      (vega/boxplot :values (->> sessions
                                 (group-by :game)
                                 (map (fn [[game sessions]]
                                        (assoc (->> (group-by :pc sessions)
                                                    (map (fn [[pc sessions]]
                                                           (reduce + (map :duration_m sessions))))
-                                                   (ui-common/boxplot-stats))
+                                                   (uic/boxplot-stats))
                                               :game game))))
 
                    :width 150
@@ -429,7 +429,7 @@
                    :color {:field :game})]
 
     [:div.col-auto
-     (ui-common/title [:span "Tiempo de juego (sólo " recurrentes ")"])
+     (uic/title [:span "Tiempo de juego (sólo " recurrentes ")"])
      (vega/boxplot :values (->> sessions
                                 (group-by :game)
                                 (map (fn [[game sessions]]
@@ -438,7 +438,7 @@
                                                              (= 1 (count (set (map :date sessions))))))
                                                    (map (fn [[pc sessions]]
                                                           (reduce + (map :duration_m sessions))))
-                                                   (ui-common/boxplot-stats))
+                                                   (uic/boxplot-stats))
                                               :game game))))
 
                    :width 150
@@ -449,7 +449,7 @@
                    :color {:field :game})]]
 
    [:div.my-4.col-auto
-    (ui-common/title "Jugadores por país")
+    (uic/title "Jugadores por país")
     (vega/world-map :values (let [country-map (-> (group-by :country sessions)
                                                   (update-vals (fn [sessions]
                                                                  (count (set (map :pc sessions))))))]
@@ -515,28 +515,28 @@
 
      [:div.row
       [:div.col-auto.my-4
-       (ui-common/title "Movimientos")
+       (uic/title "Movimientos")
        (vega/scatter :values (get-stats :polygon_rotations)
                      :x {:field :painting
                          :title "Pintura"
                          :axis {:labelAngle 0}}
                      :y {:field :value})]
       [:div.col-auto.my-4
-       (ui-common/title "Cambios de pivot")
+       (uic/title "Cambios de pivot")
        (vega/scatter :values (get-stats :pivot_changes)
                      :x {:field :painting
                          :title "Pintura"
                          :axis {:labelAngle 0}}
                      :y {:field :value})]
       [:div.col-auto.my-4
-       (ui-common/title "Minutos trabajando")
+       (uic/title "Minutos trabajando")
        (vega/scatter :values (get-stats :m_working)
                      :x {:field :painting
                          :title "Pintura"
                          :axis {:labelAngle 0}}
                      :y {:field :value})]
       [:div.col-auto.my-4
-       (ui-common/title "Segundos pensando")
+       (uic/title "Segundos pensando")
        (vega/scatter :values (get-stats :s_thinking)
                      :x {:field :painting
                          :title "Pintura"
@@ -597,10 +597,10 @@
              data)]]]]))
 
 (defn toggle-btn [text]
-  (ui-common/html [:button.r-button.btn.btn-sm.btn-outline-dark.rounded-pill
-                   {:type "button" :data-bs-toggle "button"}
-                   [:i.fa-solid.fa-cube.me-2]
-                   text]))
+  (uic/html [:button.r-button.btn.btn-sm.btn-outline-dark.rounded-pill
+             {:type "button" :data-bs-toggle "button"}
+             [:i.fa-solid.fa-cube.me-2]
+             text]))
 
 (defn set-pressed! [btn pressed?]
   (if pressed?
@@ -631,24 +631,24 @@
 (defn game-checkbox [game-name]
   (let [game-key (game-keyword game-name)
         checked? (contains? (-> @!state :filters :games) game-name)]
-    (ui-common/html [:div.form-check.form-switch.text-center.mx-3
-           (doto (ui-common/html [:input.form-check-input {:id game-key :type "checkbox"
-                                                 :role "switch" :checked checked?}])
-             (bs/on-click #(swap! !state update-in [:filters :games]
-                                  (fn [filters]
-                                    (if (contains? filters game-name)
-                                      (disj filters game-name)
-                                      (conj filters game-name))))))
-           [:label.form-check-.ebal {:for game-key} game-name]])))
+    (uic/html [:div.form-check.form-switch.text-center.mx-3
+               (doto (uic/html [:input.form-check-input {:id game-key :type "checkbox"
+                                                         :role "switch" :checked checked?}])
+                 (bs/on-click #(swap! !state update-in [:filters :games]
+                                      (fn [filters]
+                                        (if (contains? filters game-name)
+                                          (disj filters game-name)
+                                          (conj filters game-name))))))
+               [:label.form-check-.ebal {:for game-key} game-name]])))
 
 (defn players-filter [{:keys [selected min max]}]
   (cons [:div "Jugadores:"]
         (map (fn [n]
                (let [id (str "players_" n)]
                  [:div.form-check.form-check-inline
-                  (doto (ui-common/html [:input.form-check-input
-                               {:id id :type "checkbox"
-                                :checked (contains? selected n)}])
+                  (doto (uic/html [:input.form-check-input
+                                   {:id id :type "checkbox"
+                                    :checked (contains? selected n)}])
                     (bs/on-click #(swap! !state update-in [:filters :players :selected]
                                          (fn [selected]
                                            (if (contains? selected n)
@@ -663,9 +663,9 @@
                (let [name (str/replace (str n) #"\W+" "")
                      id (str name "_checkbox")]
                  [:div.form-check.form-check-inline
-                  (doto (ui-common/html [:input.form-check-input
-                               {:id id :type "checkbox"
-                                :checked (-> @!state :filters n)}])
+                  (doto (uic/html [:input.form-check-input
+                                   {:id id :type "checkbox"
+                                    :checked (-> @!state :filters n)}])
                     (bs/on-click #(swap! !state update-in [:filters n] not)))
                   [:label.form-check-label {:for id} (str/capitalize name)]]))
              [:local? :online?])))
@@ -675,9 +675,9 @@
         (map (fn [platform]
                (let [id (str "platform_" platform "_checkbox")]
                  [:div.form-check.form-check-inline
-                  (doto (ui-common/html [:input.form-check-input
-                               {:id id :type "checkbox"
-                                :checked (contains? selected platform)}])
+                  (doto (uic/html [:input.form-check-input
+                                   {:id id :type "checkbox"
+                                    :checked (contains? selected platform)}])
                     (bs/on-click #(swap! !state update-in [:filters :platforms :selected]
                                          (fn [selected]
                                            (if (contains? selected platform)
@@ -697,16 +697,16 @@
                      :all-time "Todos los tiempos"}]
     [:div.btn-group-vertical {:role :group}
      (map (fn [period]
-            (doto (ui-common/html [:button.btn.btn-sm.btn-outline-dark
-                         {:type "button"}
-                         (period-name period)])
+            (doto (uic/html [:button.btn.btn-sm.btn-outline-dark
+                             {:type "button"}
+                             (period-name period)])
               (set-pressed! (= selected-period period))
               (bs/on-click #(swap! !state assoc-in [:filters :period] period))))
           periods)]))
 
 (defn update-ui! [{:keys [data filters]}]
   (vega/finalize!)
-  (doto (ui-common/get-element-by-id "summary-title")
+  (doto (uic/get-element-by-id "summary-title")
     (oset! :textContent (->> (:visible-charts @!state)
                              (map chart-titles)
                              (str/join " + "))))
@@ -715,62 +715,66 @@
         players (->> sessions
                      (map :pc)
                      (set))]
-    (doto (ui-common/get-element-by-id "summary-label")
-      (ui-common/clear!)
-      (ui-common/append! [:span.col.navbar-text (str (count matches) (if (= 1 (count matches)) " partida" " partidas") " / "
-                           (count sessions) (if (= 1 (count sessions)) " sesión" " sesiones") " / "
-                           (count players) (if (= 1 (count players)) " jugador" " jugadores"))])
-      (ui-common/append! [:span.col.navbar-text (str " (desde "
-                           (or (:date (first matches)) "?")
-                           " a "
-                           (or (:date (last matches)) "?")
-                           ")")])))
-  (doto (ui-common/get-element-by-id "filters")
-    (ui-common/clear!)
-    (ui-common/append! [:div.offcanvas-header
-              [:h5.offcanvas-title ""]
-              [:button.btn-close.text-reset {:type "button" :data-bs-dismiss "offcanvas"}]]
-             [:div.overflow-auto.px-2
-              [:div.d-grid
-               (side-bar-btn :summary)]
-              [:div.d-grid.my-2
-               (side-bar-btn :sessions-and-matches)]
-              [:div.d-grid.my-2
-               (side-bar-btn :players)]
-              (when (contains? (:games data) "Dudeney's Art Gallery")
-                [:div.d-grid.my-2
-                 (side-bar-btn :dudeney)])
-              (when (contains? (:games data) "AstroBrawl")
-                [:div.d-grid.my-2
-                 (side-bar-btn :astrobrawl)])
-              [:hr]
-              [:div
-               (map game-checkbox (sort (:games data)))]
-              [:hr]
-              [:div.text-center
-               (players-filter (:players filters))]
-              [:hr]
-              [:div.text-center
-               (local-online-filter)]
-              [:hr]
-              [:div.text-center
-               (platform-filter (:platforms filters))]
-              [:hr]
-              [:div.d-grid.my-2
-               (period-filter (:period filters))]]))
-  (doto (ui-common/get-element-by-id "charts")
-    (ui-common/clear!)
-    (ui-common/append! [:div
-              (when (visible-chart? :summary)
-                (summary data))
-              (when (visible-chart? :sessions-and-matches)
-                (sessions-and-matches data))
-              (when (visible-chart? :players)
-                (players data))
-              (when (visible-chart? :dudeney)
-                (dudeney data))
-              (when (visible-chart? :astrobrawl)
-                (ab/astrobrawl data))])))
+    (doto (uic/get-element-by-id "summary-label")
+      (uic/clear!)
+      (uic/append!
+       [:span.col.navbar-text (str (count matches) (if (= 1 (count matches)) " partida" " partidas") " / "
+                                   (count sessions) (if (= 1 (count sessions)) " sesión" " sesiones") " / "
+                                   (count players) (if (= 1 (count players)) " jugador" " jugadores"))])
+      (uic/append!
+       [:span.col.navbar-text (str " (desde "
+                                   (or (:date (first matches)) "?")
+                                   " a "
+                                   (or (:date (last matches)) "?")
+                                   ")")])))
+  (doto (uic/get-element-by-id "filters")
+    (uic/clear!)
+    (uic/append!
+     [:div.offcanvas-header
+      [:h5.offcanvas-title ""]
+      [:button.btn-close.text-reset {:type "button" :data-bs-dismiss "offcanvas"}]]
+     [:div.overflow-auto.px-2
+      [:div.d-grid
+       (side-bar-btn :summary)]
+      [:div.d-grid.my-2
+       (side-bar-btn :sessions-and-matches)]
+      [:div.d-grid.my-2
+       (side-bar-btn :players)]
+      (when (contains? (:games data) "Dudeney's Art Gallery")
+        [:div.d-grid.my-2
+         (side-bar-btn :dudeney)])
+      (when (contains? (:games data) "AstroBrawl")
+        [:div.d-grid.my-2
+         (side-bar-btn :astrobrawl)])
+      [:hr]
+      [:div
+       (map game-checkbox (sort (:games data)))]
+      [:hr]
+      [:div.text-center
+       (players-filter (:players filters))]
+      [:hr]
+      [:div.text-center
+       (local-online-filter)]
+      [:hr]
+      [:div.text-center
+       (platform-filter (:platforms filters))]
+      [:hr]
+      [:div.d-grid.my-2
+       (period-filter (:period filters))]]))
+  (doto (uic/get-element-by-id "charts")
+    (uic/clear!)
+    (uic/append!
+     [:div
+      (when (visible-chart? :summary)
+        (summary data))
+      (when (visible-chart? :sessions-and-matches)
+        (sessions-and-matches data))
+      (when (visible-chart? :players)
+        (players data))
+      (when (visible-chart? :dudeney)
+        (dudeney data))
+      (when (visible-chart? :astrobrawl)
+        (ab/astrobrawl data))])))
 
 (defn subtract-days-from-today [days]
   (js/Date. (- (js/Date.now)
@@ -846,7 +850,7 @@
     [:div#filters.offcanvas.offcanvas-end.px-0 {:tabindex -1}]]])
 
 (defn download-backup! []
-  (ui-common/show-wait-dialog!
+  (uic/show-wait-dialog!
    "Preparing backup..."
    (go
      (let [backup (<? (data/backup!))]
@@ -859,10 +863,10 @@
   (go
     (if (nil? data)
       (js/window.location.replace "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-      (do (doto (ui-common/get-element-by-id "content")
-            (ui-common/clear!)
-            (ui-common/append! main-container))
-          (doto (ui-common/get-element-by-id "backup-button")
+      (do (doto (uic/get-element-by-id "content")
+            (uic/clear!)
+            (uic/append! main-container))
+          (doto (uic/get-element-by-id "backup-button")
             (bs/on-click download-backup!))
           (add-watch !state ::state-change
                      (fn [_ _ old new]
@@ -891,4 +895,4 @@
           (update-filters! data)))))
 
 (defn clear-ui! []
-  (ui-common/clear! (ui-common/get-element-by-id "content")))
+  (uic/clear! (uic/get-element-by-id "content")))
