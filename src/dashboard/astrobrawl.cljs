@@ -28,7 +28,7 @@
         sessions (->> sessions
                       (filter (comp #{"AstroBrawl"} :game)))
         matches-by-mode (group-by :mode matches)]
-    [:div.row
+    [:div.container-fluid
      [:div.row.my-4
       [:div.col-auto
        (ui/title "Tutorial success rate")

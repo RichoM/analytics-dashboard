@@ -106,7 +106,7 @@
                      cards)])))])
 
 (defn sessions-and-matches [{:keys [sessions matches]}]
-  [:div.row
+  [:div.container-fluid
    [:div.my-4.col-auto
     (ui-common/title "Sesiones y partidas por día")
     (vega/line :values (data/sessions-by-day sessions matches)
@@ -244,8 +244,7 @@
 (def recurrentes ui-common/recurrentes)
 
 (defn players [{:keys [games sessions matches]}]
-  [:div.row
-
+  [:div.container-fluid
    [:div.my-4.col-auto
     (ui-common/title "Jugadores por día")
     (vega/bar :values (->> sessions
@@ -512,7 +511,7 @@
                                      {:painting painting :value value})
                                    (get-in metadata [true key])))
                             data))]
-    [:div.row
+    [:div.container-fluid
 
      [:div.row
       [:div.col-auto.my-4
