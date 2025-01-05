@@ -340,5 +340,75 @@
                  :y {:field :count
                      :aggregate "sum"
                      :title "Cantidad de partidas"
-                     :scale {:type "log"}})]]]))
+                     :scale {:type "log"}})]
+      
+      [:div.col-auto
+       (uic/title "Play again %")
+       (vega/bar :values (->> matches-by-mode
+                              (mapcat (fn [[mode matches]]
+                                        (let [total (count matches)
+                                              play-again-same-mode
+                                              (->> matches
+                                                   (filter :play_again_same_mode)
+                                                   (count))
+                                              play-again-different-mode
+                                              (->> matches
+                                                   (filter :play_again_different_mode)
+                                                   (count))
+                                              play-again-different-session
+                                              (->> matches
+                                                   (filter :play_again_different_session)
+                                                   (count))
+                                              play-again
+                                              (->> matches
+                                                   (filter :play_again)
+                                                   (count))]
+                                          [{:mode mode
+                                            :type "Same mode, same session"
+                                            :count play-again-same-mode
+                                            :total total
+                                            :percent (* 100 (/ play-again-same-mode total))}
+                                           {:mode mode
+                                            :type "Different mode, same session"
+                                            :count play-again-different-mode
+                                            :total total
+                                            :percent (* 100 (/ play-again-different-mode total))}
+                                           {:mode mode
+                                            :type "Different session, any mode"
+                                            :count play-again-different-session
+                                            :total total
+                                            :percent (* 100 (/ play-again-different-session total))}
+                                           {:mode mode
+                                            :type "Any"
+                                            :count play-again
+                                            :total total
+                                            :percent (* 100 (/ play-again total))}]))))
+                 :height 256
+                 :x {:field :mode}                
+                 :y {:field :percent
+                     :title "Porcentaje de partidas"}
+                 :xOffset {:field :type
+                           :sort ["Same mode, same session" 
+                                  "Different mode, same session" 
+                                  "Different session, any mode" 
+                                  "Any"]}
+                 :color {:field :type
+                         :type :nominal
+                         :sort ["Same mode, same session"
+                                "Different mode, same session"
+                                "Different session, any mode"
+                                "Any"]})]]]))
 
+(comment
+  
+  (let [state @dashboard.ui/!state]
+    (def games (-> state :data :games))
+    (def sessions (-> state :data :sessions))
+    (def matches (-> state :data :matches))
+    (defn without-meta [o]
+      (with-meta o nil))
+    (def matches-by-mode (group-by :mode matches)))
+  
+
+  (keys matches-by-mode)
+  )
