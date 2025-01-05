@@ -22,9 +22,42 @@
 (defn match-version [match]
   (-> match meta :session :version parse-version))
 
+(defn- assoc-play-again [matches]
+  (let [matches-by-pc (group-by #(-> % meta :session :pc) matches)]
+    (->> matches
+         (map (fn [{:keys [session mode] :as match}]
+                (let [session-pc (-> match meta :session :pc)
+                      related-matches (get matches-by-pc session-pc [])
+                      next-matches (->> related-matches
+                                        (drop-while #(not= % match))
+                                        (drop 1))
+                      next-matches-same-session (->> next-matches
+                                                     (filter #(= session (:session %)))
+                                                     (vec))
+                      next-matches-different-session (->> next-matches
+                                                          (remove #(= session (:session %)))
+                                                          (vec))
+                      play_again_same_mode? (or (->> next-matches-same-session
+                                                     (some #(= mode (:mode %))))
+                                                false)
+                      play_again_different_mode? (or (->> next-matches-same-session
+                                                          (some #(not= mode (:mode %))))
+                                                     false)
+                      play_again_different_session? (> (count next-matches-different-session)
+                                                       1)]
+                  (assoc match
+                         :play_again_same_mode play_again_same_mode?
+                         :play_again_different_mode play_again_different_mode?
+                         :play_again_different_session play_again_different_session?
+                         :play_again (or play_again_same_mode?
+                                         play_again_different_mode?
+                                         play_again_different_session?))))))))
+
 (defn astrobrawl [{:keys [matches sessions]}]
   (let [matches (->> matches
-                     (filterv (comp #{"AstroBrawl"} :game)))
+                     (filter (comp #{"AstroBrawl"} :game))
+                     (assoc-play-again)
+                     (vec))
         sessions (->> sessions
                       (filterv (comp #{"AstroBrawl"} :game)))
         matches-by-mode (group-by :mode matches)]
