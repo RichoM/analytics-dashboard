@@ -68,7 +68,7 @@
                           {:type "button"}
                           [:i.fa-solid.fa-download.pe-2] "Export CSV"])
          (bs/on-click #(export/download-csv! matches)))]]
-     
+
      [:div.row.my-4
       [:div.col-auto
        (uic/title "Tutorial success rate")
@@ -116,7 +116,7 @@
                      :title "Duración (segundos)"}
                  :y {:aggregate :count
                      :title "Cantidad de partidas"})]]
-  
+
      [:div.row.my-4
       [:div.col-auto
        (uic/title "Duración del tutorial")
@@ -223,7 +223,7 @@
                  :x {:field :version}
                  :y {:field :ratio}
                  :color {:field :version})]]
-  
+
      [:div.row.my-4
       [:div.col-auto
        (uic/title [:span "Jugadores nuevos vs " uic/recurrentes]
@@ -286,7 +286,7 @@
                  :color {:field :type}
                  :width 512
                  :height 192)]]
-  
+
      [:div.row.my-4
       [:div.col-auto
        (uic/title "Duración de la sesión" "(por versión)")
@@ -341,9 +341,9 @@
                      :aggregate "sum"
                      :title "Cantidad de partidas"
                      :scale {:type "log"}})]
-      
+
       [:div.col-auto
-       (uic/title "Play again %")
+       (uic/title "Play again %" "(por modo de juego)")
        (vega/bar :values (->> matches-by-mode
                               (mapcat (fn [[mode matches]]
                                         (let [total (count matches)
@@ -384,20 +384,67 @@
                                             :total total
                                             :percent (* 100 (/ play-again total))}]))))
                  :height 256
-                 :x {:field :mode}                
+                 :x {:field :mode}
                  :y {:field :percent
                      :title "Porcentaje de partidas"}
                  :xOffset {:field :type
-                           :sort ["Same mode, same session" 
-                                  "Different mode, same session" 
-                                  "Different session, any mode" 
+                           :sort ["Same mode, same session"
+                                  "Different mode, same session"
+                                  "Different session, any mode"
                                   "Any"]}
                  :color {:field :type
                          :type :nominal
                          :sort ["Same mode, same session"
                                 "Different mode, same session"
                                 "Different session, any mode"
-                                "Any"]})]]]))
+                                "Any"]})]
+
+      [:div.col-auto
+       (uic/title "Play again %" "(por versión)")
+       (vega/bar :values (->> matches
+                              (group-by #(str/join "." (take 2 (match-version %))))
+                              (mapcat (fn [[version matches]]
+                                        (let [total (count matches)
+                                              play-again-same-session
+                                              (->> matches
+                                                   (filter #(or (:play_again_same_mode %)
+                                                                (:play_again_different_mode %)))
+                                                   (count))
+
+                                              play-again-different-session
+                                              (->> matches
+                                                   (filter :play_again_different_session)
+                                                   (count))
+
+                                              play-again
+                                              (->> matches
+                                                   (filter :play_again)
+                                                   (count))]
+                                          [{:version version
+                                            :type "Same session"
+                                            :count play-again-same-session
+                                            :total total
+                                            :percent (* 100 (/ play-again-same-session total))}
+                                           {:version version
+                                            :type "Different session"
+                                            :count play-again-different-session
+                                            :total total
+                                            :percent (* 100 (/ play-again-different-session total))}
+                                           #_{:version version
+                                              :type "Any"
+                                              :count play-again
+                                              :total total
+                                              :percent (* 100 (/ play-again total))}]))))
+
+                 :height 256
+                 :x {:field :version}
+                 :y {:field :percent
+                     :title "Porcentaje de partidas"}
+                 :xOffset {:field :type
+                           :sort ["Same session" "Different session"]}
+                 :color {:field :type
+                         :type :nominal
+                         :sort ["Same session" "Different session"]})]]]))
 
 (comment
   
