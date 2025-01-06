@@ -400,8 +400,9 @@
                                 "Any"]})]
 
       [:div.col-auto
-       (uic/title "Play again %" "(por versión)")
+       (uic/title "Play again %" "(por versión, excluyendo tutorial)")
        (vega/bar :values (->> matches
+                              (remove #(= "TUTORIAL" (:mode %)))
                               (group-by #(str/join "." (take 2 (match-version %))))
                               (mapcat (fn [[version matches]]
                                         (let [total (count matches)
