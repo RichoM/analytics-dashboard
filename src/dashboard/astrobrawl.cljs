@@ -101,7 +101,43 @@
                                      :count count
                                      :percent (percent (/ count total))})
                                   freq-map)))
+                 :color {:field :type})]]
+     [:div.row.my-4
+      [:div.col-auto
+       (uic/title "Tutorial success rate (v2.3.4+)")
+       (vega/arc :values (let [matches (->> (get matches-by-mode "TUTORIAL" [])
+                                            (remove #(older-version? (match-version %) [2 3 4]))
+                                            (remove #(get-in % [:metadata :was_completed_before] false))
+                                            (map :over?))
+                               freq-map (frequencies matches)
+                               total (count matches)]
+                           (if (zero? total)
+                             []
+                             (map (fn [[over? count]]
+                                    {:type (if over? "FINISHED" "ABANDONED")
+                                     :count count
+                                     :percent (percent (/ count total))})
+                                  freq-map)))
                  :color {:field :type})]
+      [:div.col-auto
+       (uic/title "Tutorial success rate (v2.3.4+)"
+                  "Habiendo jugado por lo menos 10 segundos")
+       (vega/arc :values (let [matches (->> (get matches-by-mode "TUTORIAL" [])
+                                            (remove #(older-version? (match-version %) [2 3 4]))
+                                            (remove #(get-in % [:metadata :was_completed_before] false))
+                                            (remove #(< (:duration_s %) 10))
+                                            (map :over?))
+                               freq-map (frequencies matches)
+                               total (count matches)]
+                           (if (zero? total)
+                             []
+                             (map (fn [[over? count]]
+                                    {:type (if over? "FINISHED" "ABANDONED")
+                                     :count count
+                                     :percent (percent (/ count total))})
+                                  freq-map)))
+                 :color {:field :type})]]
+     [:div.row.my-4
       [:div.col-auto
        (uic/title "¿Cuándo deciden abandonar?"
                   "Primeros 5 minutos del tutorial")
@@ -116,7 +152,6 @@
                      :title "Duración (segundos)"}
                  :y {:aggregate :count
                      :title "Cantidad de partidas"})]]
-
      [:div.row.my-4
       [:div.col-auto
        (uic/title "Duración del tutorial")
@@ -456,6 +491,7 @@
     (defn without-meta [o]
       (with-meta o nil))
     (def matches-by-mode (group-by :mode matches)))
+  
   
 
   (keys matches-by-mode)
