@@ -216,30 +216,89 @@
                :color {:field :game}
                :width 256 :height 256)]]
 
-   [:div.my-4.col-auto
-    (uic/title "Sesiones por país")
-    (vega/world-map :values (let [country-map (-> (group-by :country sessions)
-                                                  (update-vals count))]
-                              (map (fn [country]
-                                     (let [count (get country-map country 0)]
-                                       {:id (:id country)
-                                        :name (:name country)
-                                        :tooltip (str (:name country) ": " count)
-                                        :count count}))
-                                   countries/all-countries)))]
 
-   [:div.my-4.col-auto
-    (uic/title "Partidas por país")
-    (vega/world-map :values (let [country-map (-> (group-by (comp :country :session meta) matches)
-                                                  (update-vals count))]
-                              (map (fn [country]
-                                     (let [count (get country-map country 0)]
-                                       {:id (:id country)
-                                        :name (:name country)
-                                        :tooltip (str (:name country) ": " count)
-                                        :count count}))
-                                   countries/all-countries))
-                    :color-scheme :purples)]])
+   (let [matches-by-country (->> matches
+                                 (map (fn [match]
+                                        (assoc match :country
+                                               (-> match meta :session :country))))
+                                 (group-by :country))
+         time-played-by-country (->> matches-by-country
+                                     (map (fn [[country matches]]
+                                            [country
+                                             (->> matches
+                                                  (map :duration_m)
+                                                  (reduce +))]))
+                                     (into {}))]
+     [:div
+      [:div.row.my-4
+       (let [day-of-week ["Domingo" "Lunes" "Martes" "Miércoles" "Jueves" "Viernes" "Sábado"]
+             top-5-countries (->> time-played-by-country
+                                  (sort-by second >)
+                                  (take 5)
+                                  (mapv first))]
+         [:div.col-auto
+          (uic/title "Tiempo de juego por día de la semana"
+                     "Sólo los 5 países con más tiempo de juego")
+          (vega/bar :values (->> top-5-countries
+                                 (mapcat (fn [country]
+                                           (->> (matches-by-country country)
+                                                (group-by (fn [{:keys [datetime]}]
+                                                            (.getUTCDay datetime)))
+                                                (map (fn [[day matches]]
+                                                       {:country (:name country)
+                                                        :day-of-week (nth day-of-week day)
+                                                        :minutes (->> matches
+                                                                      (map :duration_m)
+                                                                      (reduce +))}))))))
+                    :x {:field :day-of-week
+                        :type :nominal
+                        :sort day-of-week}
+                    :y {:field :minutes
+                        :type :quantitative
+                        :title "Minutos"}
+                    :color {:field :country
+                            :type :nominal
+                            :sort (mapv :name top-5-countries)}
+                    :xOffset {:field :country
+                              :type :nominal
+                              :sort (mapv :name top-5-countries)})])]
+
+      [:div.my-4.col-auto
+       (uic/title "Tiempo de juego por país (minutos totales)")
+       (vega/world-map :values (let [country-map time-played-by-country]
+                                 (map (fn [country]
+                                        (let [minutes-played (get country-map country 0)]
+                                          {:id (:id country)
+                                           :name (:name country)
+                                           :tooltip (str (:name country) ": "
+                                                         (.toFixed minutes-played 1) " m")
+                                           :count minutes-played}))
+                                      countries/all-countries)))]])
+
+   #_[:div.my-4.col-auto
+      (uic/title "Sesiones por paÃ­s")
+      (vega/world-map :values (let [country-map (-> (group-by :country sessions)
+                                                    (update-vals count))]
+                                (map (fn [country]
+                                       (let [count (get country-map country 0)]
+                                         {:id (:id country)
+                                          :name (:name country)
+                                          :tooltip (str (:name country) ": " count)
+                                          :count count}))
+                                     countries/all-countries)))]
+
+   #_[:div.my-4.col-auto
+      (uic/title "Partidas por país")
+      (vega/world-map :values (let [country-map (-> (group-by (comp :country :session meta) matches)
+                                                    (update-vals count))]
+                                (map (fn [country]
+                                       (let [count (get country-map country 0)]
+                                         {:id (:id country)
+                                          :name (:name country)
+                                          :tooltip (str (:name country) ": " count)
+                                          :count count}))
+                                     countries/all-countries))
+                      :color-scheme :purples)]])
 
 (def recurrentes uic/recurrentes)
 
