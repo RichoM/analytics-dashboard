@@ -151,8 +151,10 @@
 
 (defn collect-buckets [matches bucket-size]
   (let [buckets (atom {})]
-    (doseq [{:keys [datetime duration_s]} matches]
-      (add-to-bucket! buckets bucket-size datetime duration_s))
+    (doseq [{:keys [datetime duration_s] :as match} matches]
+      (let [country (-> match meta :session :country)
+            country-dt (add-seconds datetime (:delta-s country))]
+        (add-to-bucket! buckets bucket-size country-dt duration_s)))
     @buckets))
 
 (defn sessions-and-matches [{:keys [sessions matches]}]
@@ -315,25 +317,50 @@
                               :sort (mapv :name top-5-countries)})])]
       
       [:div.row
-       [:div.col-12
-        (uic/title "")
-        (vega/bar :values (map (fn [[idx seconds]]
-                                 {:idx idx
-                                  :time (let [minutes-in-day (* 15 idx)
-                                              m (int (mod minutes-in-day 60))
-                                              h (int (/ minutes-in-day 60))]
-                                          (str (pad-left (str h) 2 "0")
-                                               ":"
-                                               (pad-left (str m) 2 "0")))
-                                  :seconds seconds})
-                               (collect-buckets matches 15))
-                  :width 1024
-                  :height 128
-                  :x {:field :time
-                      :axis {:labelAngle -35
-                             :labelOverlap true}
-                      :sort {:field :idx}}
-                  :y {:field :seconds})]]
+       (vec (concat [:div.col-auto (uic/title "Horarios de juego estimados (en hora local)"
+                                              "Sólo los 5 países con más tiempo de juego")
+                     [:div.col-12
+                      (vega/bar :values (map (fn [[idx seconds]]
+                                               {:idx idx
+                                                :time (let [minutes-in-day (* 15 idx)
+                                                            m (int (mod minutes-in-day 60))
+                                                            h (int (/ minutes-in-day 60))]
+                                                        (str (pad-left (str h) 2 "0")
+                                                             ":"
+                                                             (pad-left (str m) 2 "0")))
+                                                :seconds seconds
+                                                :country "ALL"})
+                                             (collect-buckets matches 15))
+                                :width 1024
+                                :height 128
+                                :x {:field :time
+                                    :axis {:labelAngle -35
+                                           :labelOverlap true}
+                                    :sort {:field :idx}}
+                                :y {:field :seconds}
+                                :color {:field :country})]]
+                    (->> top-5-countries
+                         (mapv (fn [country]
+                                 [:div.col-12
+                                  (vega/bar :values (map (fn [[idx seconds]]
+                                                           {:idx idx
+                                                            :time (let [minutes-in-day (* 15 idx)
+                                                                        m (int (mod minutes-in-day 60))
+                                                                        h (int (/ minutes-in-day 60))]
+                                                                    (str (pad-left (str h) 2 "0")
+                                                                         ":"
+                                                                         (pad-left (str m) 2 "0")))
+                                                            :seconds seconds
+                                                            :country (:name country)})
+                                                         (collect-buckets (matches-by-country country) 15))
+                                            :width 1024
+                                            :height 128
+                                            :x {:field :time
+                                                :axis {:labelAngle -35
+                                                       :labelOverlap true}
+                                                :sort {:field :idx}}
+                                            :y {:field :seconds}
+                                            :color {:field :country})])))))]
 
       [:div.my-4.col-auto
        (uic/title "Tiempo de juego por país (minutos totales)")
