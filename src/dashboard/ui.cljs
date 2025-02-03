@@ -336,11 +336,9 @@
       [:div.row
        (let [data (->> top-5-countries
                        (mapv (fn [country]
-                               [country
-                                (map #(assoc % :country (:name country))
-                                     (collect-buckets (matches-by-country country) 15))])))
+                               (map #(assoc % :country (:name country))
+                                    (collect-buckets (matches-by-country country) 15)))))
              max-seconds (->> data
-                              (map second)
                               (map #(->> %
                                          (map :seconds)
                                          (apply max)))
@@ -356,7 +354,7 @@
                                                 "Sólo los 5 países con más tiempo de juego")]
                       (->> data
                            (map-indexed
-                            (fn [idx [_ buckets]]
+                            (fn [idx buckets]
                               [:div.col-12
                                (vega/bar :values buckets
                                          :width 1024
