@@ -7,7 +7,7 @@
             [utils.bootstrap :as bs]
             [utils.async :refer [go-try <?]]
             [utils.frequencies :as f]
-            [utils.core :refer [indexed-by percent seek average]]
+            [utils.core :refer [indexed-by percent seek average pad-left]]
             [crate.core :as crate]
             [dashboard.ui-common :as uic]
             [dashboard.vega :as vega]
@@ -23,7 +23,6 @@
     (def games (-> @!state :data :games))
     (def sessions (-> @!state :data :sessions))
     (def matches (-> @!state :data :matches)))
-  
   )
 
 (defonce !state (atom {:charts {:sessions-and-matches {}
@@ -104,6 +103,57 @@
                 (map (fn [card]
                        [:div.col-lg-4.my-2 card])
                      cards)])))])
+
+(defn timestamp-to-bucket-idx [t bucket-size]
+  (let [h (.getUTCHours t)
+        m (.getUTCMinutes t)
+        s (.getUTCSeconds t)
+        seconds-in-day (+ (* h 60 60)
+                          (* m 60)
+                          s)
+        minutes-in-day (/ seconds-in-day 60)]
+    (int (/ minutes-in-day bucket-size))))
+
+(defn bucket-idx-to-timestamp
+  ([idx bucket-size] (bucket-idx-to-timestamp idx bucket-size (js/Date.)))
+  ([idx bucket-size dt]
+   (let [minutes-in-day (* bucket-size idx)
+         s 0
+         m (mod minutes-in-day 60)
+         h (int (/ minutes-in-day 60))]
+     (doto (js/Date. dt)
+       (.setUTCHours h)
+       (.setUTCMinutes m)
+       (.setUTCSeconds s)))))
+
+(defn add-seconds [dt s]
+  (let [result (js/Date. dt)]
+    (doto result
+      (.setMilliseconds (+ (.getMilliseconds result)
+                           (* s 1000))))))
+
+(defn add-to-bucket! [buckets bucket-size dt duration-s]
+  (let [begin-time dt
+        end-time (add-seconds dt duration-s)
+        begin-idx (timestamp-to-bucket-idx begin-time bucket-size)
+        end-idx (timestamp-to-bucket-idx end-time bucket-size)]
+    (if (= begin-idx end-idx)
+      (swap! buckets update begin-idx + duration-s)
+      (let [begin-time-bucket (bucket-idx-to-timestamp begin-idx bucket-size dt)
+            seconds-inside-bucket (- (* bucket-size 60)
+                                     (/ (- dt begin-time-bucket)
+                                        1000.0))]
+        (swap! buckets update begin-idx + seconds-inside-bucket)
+        (add-to-bucket! buckets
+                        bucket-size
+                        (add-seconds dt seconds-inside-bucket)
+                        (- duration-s seconds-inside-bucket))))))
+
+(defn collect-buckets [matches bucket-size]
+  (let [buckets (atom {})]
+    (doseq [{:keys [datetime duration_s]} matches]
+      (add-to-bucket! buckets bucket-size datetime duration_s))
+    @buckets))
 
 (defn sessions-and-matches [{:keys [sessions matches]}]
   [:div.container-fluid
@@ -228,14 +278,14 @@
                                              (->> matches
                                                   (map :duration_m)
                                                   (reduce +))]))
-                                     (into {}))]
+                                     (into {}))
+         top-5-countries (->> time-played-by-country
+                              (sort-by second >)
+                              (take 5)
+                              (mapv first))]
      [:div
       [:div.row.my-4
-       (let [day-of-week ["Domingo" "Lunes" "Martes" "Miércoles" "Jueves" "Viernes" "Sábado"]
-             top-5-countries (->> time-played-by-country
-                                  (sort-by second >)
-                                  (take 5)
-                                  (mapv first))]
+       (let [day-of-week ["Domingo" "Lunes" "Martes" "Miércoles" "Jueves" "Viernes" "Sábado"]]
          [:div.col-auto
           (uic/title "Tiempo de juego por día de la semana"
                      "Sólo los 5 países con más tiempo de juego")
@@ -252,6 +302,7 @@
                                                                       (reduce +))}))))))
                     :x {:field :day-of-week
                         :type :nominal
+                        :axis {:labelAngle 0}
                         :sort day-of-week}
                     :y {:field :minutes
                         :type :quantitative
@@ -262,6 +313,27 @@
                     :xOffset {:field :country
                               :type :nominal
                               :sort (mapv :name top-5-countries)})])]
+      
+      [:div.row
+       [:div.col-12
+        (uic/title "")
+        (vega/bar :values (map (fn [[idx seconds]]
+                                 {:idx idx
+                                  :time (let [minutes-in-day (* 15 idx)
+                                              m (int (mod minutes-in-day 60))
+                                              h (int (/ minutes-in-day 60))]
+                                          (str (pad-left (str h) 2 "0")
+                                               ":"
+                                               (pad-left (str m) 2 "0")))
+                                  :seconds seconds})
+                               (collect-buckets matches 15))
+                  :width 1024
+                  :height 128
+                  :x {:field :time
+                      :axis {:labelAngle -35
+                             :labelOverlap true}
+                      :sort {:field :idx}}
+                  :y {:field :seconds})]]
 
       [:div.my-4.col-auto
        (uic/title "Tiempo de juego por país (minutos totales)")
