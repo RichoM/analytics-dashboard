@@ -76,7 +76,7 @@
                                                     :title nil}
                                                    color)))
             :layer [{:mark {:type :line
-                            :point {:size 100}
+                            :point {:size 50}
                             :tooltip {:content :data}}}]}
      width (assoc :width width)
      height (assoc :height height))])

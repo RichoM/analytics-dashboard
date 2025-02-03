@@ -1,6 +1,7 @@
 (ns dashboard.play-time
   (:require [dashboard.ui-common :as uic]
             [dashboard.vega :as vega]
+            [dashboard.data :as data]
             [dashboard.countries :as countries]
             [utils.core :refer [indexed-by percent seek average pad-left]]))
 
@@ -68,6 +69,23 @@
 
 (defn play-time [{:keys [sessions matches]}]
   [:div.container-fluid
+   [:div.my-4.col-auto
+    (uic/title "Tiempo de juego por día (minutos)")
+    (vega/line :values (->> matches
+                            (group-by :game)
+                            (mapcat (fn [[game matches]]
+                                      (map #(assoc % :game game)
+                                           (data/playtime-by-day matches)))))
+               :width 1024 ; :height 512
+               :x {:field :date
+                   :title "Fecha"
+                   :axis {:labelAngle -35
+                          :labelOverlap true}}
+               :y {:field :minutes
+                   :title "Minutos"}
+               :color {:field :game
+                       :title "Juego"})]
+   
    [:div.row.my-4
     [:div.col-auto
      (uic/title "Duración de las sesiones")

@@ -356,6 +356,23 @@
                      [{:date date :type :session :count (count (sessions date))}
                       {:date date :type :match :count (count (matches date))}]))))))
 
+(defn playtime-by-day [matches]
+  (if (empty? matches)
+    []
+    (let [matches-by-date (group-by :date matches)
+          all-dates (sort (keys (group-by :date matches)))
+          begin (first all-dates)
+          end (last all-dates)]
+      (->> (dates-between (js/Date. begin)
+                          (js/Date. end))
+           (map #(.toISOString %))
+           (map #(first (str/split % "T")))
+           (map (fn [date]
+                  {:date date
+                   :minutes (->> (matches-by-date date)
+                                 (map :duration_m)
+                                 (reduce +))}))))))
+
 (comment
   (def state @dashboard.ui/!state)
 
