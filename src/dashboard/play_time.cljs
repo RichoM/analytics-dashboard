@@ -5,6 +5,15 @@
             [dashboard.countries :as countries]
             [utils.core :refer [indexed-by percent seek average pad-left]]))
 
+(comment
+  (do
+    (def !state dashboard.ui/!state)
+    (def games (-> @!state :data :games))
+    (def sessions (-> @!state :data :sessions))
+    (def matches (-> @!state :data :matches)))
+
+  )
+
 (defn timestamp-to-bucket-idx [t bucket-size]
   (let [h (.getUTCHours t)
         m (.getUTCMinutes t)
@@ -70,21 +79,63 @@
 (defn play-time [{:keys [sessions matches]}]
   [:div.container-fluid
    [:div.my-4.col-auto
-    (uic/title "Tiempo de juego por día (minutos)")
-    (vega/line :values (->> matches
-                            (group-by :game)
-                            (mapcat (fn [[game matches]]
-                                      (map #(assoc % :game game)
-                                           (data/playtime-by-day matches)))))
-               :width 1024 ; :height 512
-               :x {:field :date
-                   :title "Fecha"
-                   :axis {:labelAngle -35
-                          :labelOverlap true}}
-               :y {:field :minutes
-                   :title "Minutos"}
-               :color {:field :game
-                       :title "Juego"})]
+    (uic/title "Tiempo de juego por día (minutos)"
+               "+ Media móvil (7 días)")
+    [:vega-lite
+     {:data {:values (let [playtime (->> matches
+                                         (group-by :game)
+                                         (mapcat (fn [[game matches]]
+                                                   (map #(assoc % :type game)
+                                                        (data/playtime-by-day matches)))))
+                           totals-by-date (->> playtime
+                                               (group-by :date)
+                                               (map (fn [[date entries]]
+                                                      [date (->> entries
+                                                                 (map :minutes)
+                                                                 (reduce +))]))
+                                               (into {}))
+                           rolling-mean (->> totals-by-date
+                                             (keys)
+                                             (sort)
+                                             (partition 7 1)
+                                             (map (fn [dates]
+                                                    (let [total (reduce + (map totals-by-date dates))
+                                                          mean (/ total (count dates))]
+                                                      [(last dates) mean])))
+                                             (into {}))]
+                       (map (fn [{:keys [date] :as entry}]
+                              (assoc entry :rolling-mean (get rolling-mean date)))
+                            playtime))}
+      :width 1024
+      ;:height 512
+      :encoding {:x {:field :date
+                     :type :ordinal
+                     :title nil
+                     :axis {:labelAngle -35
+                            :labelOverlap true}}}
+      :layer [{:mark {:type :bar :point true :tooltip {:content :data}}
+               :encoding {:y {:field :minutes
+                              :type :quantitative
+                              :title "Minutos"}
+                          :color {:field :type
+                                  :type :ordinal
+                                  :title "Juego"}}}
+              {:mark {:type :line
+                      :strokeWidth 5
+                      :interpolate :cardinal}
+               :encoding {:y {:field :rolling-mean
+                              :type :quantitative
+                              :aggregate :mean}
+                          :color {:value "#fcbfd2"}}}
+              {:mark {:type :line
+                      :strokeWidth 3
+                      :interpolate :cardinal}
+               :encoding {:y {:field :rolling-mean
+                              :type :quantitative
+                              :aggregate :mean
+                              :title "Minutos"}
+                          :color {:value "#ff0000"
+                                  :title "Test"}}}]}]]
    
    [:div.row.my-4
     [:div.col-auto
