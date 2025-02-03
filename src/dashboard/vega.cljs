@@ -51,6 +51,14 @@
         (vec (keep (partial html html*) element))))
     element))
 
+(defn find-max-scale [value]
+  (let [order-of-magnitude (Math/pow 10 (int (Math/log10 value)))]
+    (print order-of-magnitude)
+    (->> (iterate (partial + order-of-magnitude)
+                  order-of-magnitude)
+         (drop-while #(< % value))
+         (first))))
+
 (defn line [& {:keys [values x y color width height]}]
   [:vega-lite
    (cond-> {:data {:values values}
