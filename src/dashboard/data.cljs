@@ -178,6 +178,37 @@
                           "Only 1 session for each match!")
                   (vary-meta match assoc :session (first sessions))))))))
 
+(defn merge-retro-racing-attempts [matches]
+  (->> matches
+       (group-by :session) ; Just to make sure that merged matches belong to the same session
+       (mapcat (fn [[_ matches]]
+                 (->> matches
+                      (sort-by :datetime)
+                      (partition-by (fn [{:keys [mode local? player_count metadata]}]
+                                      [mode local? player_count (:level metadata)]))
+                      (map (fn [matches]
+                             (assoc (first matches)
+                                    :metadata {:attempts
+                                               (->> matches
+                                                    (mapv (fn [{:keys [metadata over?]}]
+                                                            (assoc metadata :over? over?))))}
+                                    :over? (boolean (some :over? matches))
+                                    :duration_ms (->> matches
+                                                      (map :duration_ms)
+                                                      (reduce +))
+                                    :duration_s (->> matches
+                                                     (map :duration_s)
+                                                     (reduce +))
+                                    :duration_m (->> matches
+                                                     (map :duration_m)
+                                                     (reduce +))))))))))
+
+(defn fix-retro-racing-matches [matches]
+  (->> (-> (group-by (comp str/lower-case :game) matches)
+           (update "retro racing: double dash" merge-retro-racing-attempts)
+           (vals))
+       (apply concat)))
+
 (extend-type gs/Spreadsheet
   DataSource
   (fetch-data! [spreadsheet]
@@ -191,6 +222,9 @@
 
            ; Then we can get the matches
            matches (<? (get-matches! spreadsheet sessions-indexed))
+
+           ; HACK(Richo): Merge retro racing matches when they are just attempts
+           matches (fix-retro-racing-matches matches)
 
            ; Then we join them and update some of their data 
            sessions (update-match-count sessions matches)
@@ -379,10 +413,29 @@
 
   (def sessions (filter :valid? (-> state :data :sessions)))
   (def matches (filter :valid? (-> state :data :matches)))
-  (def begin (:date (first sessions)))
-  (def end (:date (last sessions)))
+  
+  (/ (->> matches
+       (map (fn [{:keys [metadata]}]
+              (count (:attempts metadata))))
+       (reduce +))
+     (count matches))
+  
+  (->> matches
+       (map (fn [{:keys [datetime duration_s] :as m}]
+              (let [end-dt (doto (js/Date. datetime)
+                             (.setUTCSeconds (+ (.getUTCSeconds datetime)
+                                                duration_s)))]
+                (assoc m :datetime-end end-dt))))
+       (partition-by (fn [{:keys [mode local? metadata]}]
+                       [mode local? (:level metadata)]))
+       (tap>))
+  
+  (->> matches
+       (partition-by (fn [{:keys [mode local? metadata]}]
+                       [mode local? #_(:level metadata)]))
+       (tap>))
 
-  end)
+  )
 
 (defn matches-per-session [sessions matches]
   (if (empty? sessions)
