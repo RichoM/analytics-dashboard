@@ -40,7 +40,10 @@
 
 (deftype TransitSource [url])
 
-(def historical-sources [])
+; HACK(Richo): Historical source, commented out to make loading times faster.
+; TODO(Richo): Change this historical sources into a different format that doesn't require 
+; calling the google sheets API, and that could be optimized by removing invalid data.
+(def historical-sources [#_(gs/Spreadsheet. "1eYqc2hx6Un0UwJrsEjPXA66JZMaWqVB3yCF6gsfmkZQ")])
 
 (def gsheet-sources [(gs/Spreadsheet. "1JFNNtlTGjFk3BJQFfSTTsQ7IuKjkdTPEcxT7MiLkRyY")
                      (gs/Spreadsheet. "1Yj79TCA0I-73SpLtBQztqNNJ8e-ANPYX5TpPLGZmqqI")])
