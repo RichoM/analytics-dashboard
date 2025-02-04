@@ -294,68 +294,6 @@
         (catch :default err
           (println "ERROR" err)))))
 
-(comment
-
-  (keys data)
-  (first (:sessions data))
-
-  (go (try
-        (let [begin-time (js/Date.now)
-              d (<? (fetch-data! (first historical-sources)))
-              end-time (js/Date.now)
-              elapsed-s (/ (- end-time begin-time) 1000)]
-          (def data d)
-          (println elapsed-s "seconds"))  
-        (println "DONE")
-        (catch :default err
-          (println "ERROR" err))))
-  
-  (require '[clojure.data :refer [diff]])
-  (def data_diff (atom nil))
-  (go (try
-        (let [writer (t/writer :json {:handlers write-handlers})
-              reader (t/reader :json {:handlers read-handlers})
-              data (<? (fetch-data! (first gsheet-sources)))
-              serialized (t/write writer data)]
-          (reset! data_diff (diff data (t/read reader serialized))))
-        (println "DONE!")
-        (catch :default err
-          (println "ERROR" err))))
-
-  (js/console.log @data_diff)
-  (js/console.log (third @data_diff))
-
-  (go (try (let [{:keys [sessions matches]} (<? (->> gsheet-sources
-                                                     (map fetch-data!)
-                                                     (a/map (partial merge-with concat))))]
-             (println [(count sessions)
-                       (count matches)]))
-           (catch :default err
-             (println "ERROR" err))))
-
-  (def data (atom nil))
-
-  (go (try
-        (reset! data (<? (fetch-data! (first gsheet-sources))))
-        (println "DONE")
-        (catch :default err
-          (println "ERROR" err))))
-
-  (keys @data)
-
-  (def writer (t/writer :json {:handlers write-handlers}))
-  (def reader (t/reader :json {:handlers read-handlers}))
-
-  (def match (first (:matches @data)))
-
-  (meta match)
-  (def match2 (t/read reader (t/write writer match)))
-
-  (meta match2)
-  (= match match2)
-
-  (-> @data :sessions))
-
 (defn dates-between [start end]
   (when (<= start end)
     (lazy-seq (cons (js/Date. start)
