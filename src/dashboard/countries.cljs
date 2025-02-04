@@ -756,9 +756,9 @@
 
 (def with-code 
   (memoize (fn [code]
-             (try (let [id (country-id code)
-                        name (country-name code)
-                        delta-s (country-tz code)]
+             (try (let [id (get country-id code -1)
+                        name (get country-name code "?")
+                        delta-s (get country-tz code 0)]
                     (Country. id code name delta-s))
                   (catch :default err
                     (println (str "ERROR trying to get country data for: " code) 
